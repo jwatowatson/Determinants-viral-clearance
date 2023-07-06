@@ -133,13 +133,15 @@ transformed parameters {
     
     // make individual covariate transform
     beta_cov = x_slope*slope_coefs;
+    beta_time_spline = 
     alpha_cov = x_intercept*intercept_coefs;
     
     // calculate predicted log viral load under the model parameters
     for(i in 1:Ntot){
       pred_log10_vl[i] =
-      alpha_0 + theta_rand_id[id[i]][1] + alpha_cov[i] + gamma_rnasep*RNaseP[i] +
-      beta_0*exp(trt_slope[i]+theta_rand_id[id[i]][2]+beta_cov[i])*obs_day[i];
+      alpha_0 + theta_rand_id[id[i]][1] + alpha_cov[i] + // intercept for patient id[i]
+      gamma_rnasep*RNaseP[i] + // RNaseP adjustment
+      beta_0*exp(trt_slope[i]+theta_rand_id[id[i]][2]+beta_cov[i])*obs_day[i]; // slope
     }
   }
 }
