@@ -3,9 +3,13 @@ library(stringr)
 library(ggplot2)
 library(ggforce)
 library(rstan)
-getwd()
-load(file = "Swab variations/Fit/TwoCmpt_nRNaseP.RData")
-data <- read.csv("Swab variations/Data/swabber_analysis.csv")
+library(dplyr)
+
+mainDir <- "D:/Determinants-viral-clearance"
+setwd(mainDir)
+
+load(file = "Fit/TwoCmpt_nRNaseP.RData")
+data <- read.csv("Analysis_Data/swabber_analysis.csv")
 data$ID_code <- data$ID
 data$ID <- as.numeric(as.factor(data$ID))
 data <- data[order(c(data$censor), decreasing = T),]
@@ -33,19 +37,14 @@ G <- ggplot(data = data) +
   facet_wrap_paginate(~ ID_code, ncol = 6, nrow = 5, page = 1) +
   scale_y_continuous(breaks = seq(-4,9,2), limits = c(-4,9))
 
-pdf("Swab variations/Results/TwoCmpt_model_1_lab.pdf", width = 12, height = 8)
-G2
-dev.off()
 
-
-library(dplyr)
 
 estim_lambda2_ind <- which(str_detect(string = names(samples), pattern = "estim_lambda2"))
 lambda2 <- (lapply(samples[estim_lambda2_ind],  quantile, c(0.025, 0.5, 0.975)))
 lambda2 <- as.data.frame(bind_rows(lambda2, .id = "column_label"))
 colnames(lambda2) <- c("ID", "Low", "Med", "Up")
 lambda2$ID_code <- as.factor(unique(data$ID_code))
-lambda2$half_life <- log(2)/lambda2$Med
+lambda2$half_life <- log10(2)/lambda2$Med
 lambda2$lab <- paste0("Rate = ", sprintf("%.4f", round(lambda2$Med, 4)))
 lambda2$lab2 <- paste0("Half-life = ", sprintf("%.2f", round(lambda2$half_life, 2)), " days")
 
@@ -62,6 +61,9 @@ G2 <- ggplot(data = data) +
   geom_text(data = lambda2, aes(x = 0, y = -3, label = lab2), size = 3, hjust = 0) +
   theme(axis.title = element_text(size = 14, face = "bold"))
 
+pdf("Results/TwoCmpt_model_1_lab.pdf", width = 12, height = 8)
+G2
+dev.off()
 
 ?geom_text
 
