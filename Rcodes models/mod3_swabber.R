@@ -2,7 +2,7 @@ library(rstan)
 getwd()
 
 
-mainDir <- "D:/Determinants-viral-clearance"
+mainDir <- "/Users/pwongnak/Project/Determinants-viral-clearance"  # "D:/Determinants-viral-clearance"
 setwd(mainDir)
 data <- read.csv("Analysis_Data/swabber_analysis.csv")
 data <- data[!data$Swabber == "-",]
@@ -78,6 +78,7 @@ summary(fit, par = "sigma_logvl", prob = c(0.025, 0.5, 0.975))
 
 save(fit, file = "Fit/TwoCmpt_nRNaseP_swabber.RData")
 
-traceplot(fit, pars = c("sigma_logvl"))
+traceplot(fit, pars = c("sigma_logvl")) + ylim(0, 2) +
+  geom_hline(yintercept = 1, col = "red", linetype = "dashed", linewidth = 0.75)
 
 
