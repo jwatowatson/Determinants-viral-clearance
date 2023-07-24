@@ -1,7 +1,10 @@
 library(rstan)
 getwd()
 
-data <- read.csv("Swab variations/Data/swabber_analysis.csv")
+mainDir <- "D:/Determinants-viral-clearance"
+setwd(mainDir)
+
+data <- read.csv("Analysis_Data/swabber_analysis.csv")
 data$ID_code <- data$ID
 data$ID <- as.numeric(as.factor(data$ID))
 data <- data[order(c(data$censor), decreasing = T),]
@@ -48,7 +51,7 @@ data_for_stan <- list(
 )
 #############################################################################
 # Running stan code
-model <- stan_model("Swab variations/stan models/Linear_for_ineffective_arm.stan",verbose = T)
+model <- stan_model("Stan_models/Linear_for_ineffective_arm.stan",verbose = T)
 
 fit <- sampling(
   object = model,         # Stan model
@@ -62,6 +65,6 @@ fit <- sampling(
 )
 
 fit
-save(fit, file = "Swab variations/Fit/Linear_naive_nRNaseP.RData")
+save(fit, file = "Fit/Linear_naive_nRNaseP.RData")
 
 traceplot(fit, pars = c("alpha_0", "beta_0"))

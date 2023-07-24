@@ -44,14 +44,14 @@ parameters{
 
 transformed parameters{
     real pred_log10_vl[Ntot];
-    real alpha[Ntot];
-    real beta[Ntot];
+    real alpha[n_id];
+    real beta[n_id];
   
   // calculate predicted log viral load under the model parameters
     for(i in 1:Ntot){
-      alpha[i] =  alpha_0 + theta_rand_id[id[i]][1] + gamma_rnasep*RNaseP[i];
-      beta[i] =  beta_0 * exp(theta_rand_id[id[i]][2]);
-      pred_log10_vl[i] = alpha[i] + beta[i]*obs_day[i];
+      alpha[id[i]] =  alpha_0 + theta_rand_id[id[i]][1] + gamma_rnasep*RNaseP[i];
+      beta[id[i]] =  beta_0 * exp(theta_rand_id[id[i]][2]);
+      pred_log10_vl[i] = alpha[id[i]] + beta[id[i]]*obs_day[i];
     }
 }
 
