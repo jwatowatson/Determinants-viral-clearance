@@ -497,7 +497,7 @@ half_lives_time = slope_out %>%
   filter(Trt %in% c('No study drug', 'Ivermectin','Favipiravir','Fluoxetine')) %>% 
   ggplot(aes(x = Rand_date, y = t_12_med, col=Variant)) +
   geom_point() + theme_minimal(base_size = 15)+
-  geom_line(color=trt_colors['No study drug'],
+  geom_line(color='black',
             data = slope_out, 
             aes(x=Rand_date, y=Mean_pred_no_stdy_drug),
             linewidth=1.5)+
