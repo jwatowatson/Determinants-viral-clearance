@@ -4,9 +4,14 @@ getwd()
 
 mainDir <- "D:/Determinants-viral-clearance"
 setwd(mainDir)
-data <- read.csv("Analysis_Data/swabber_analysis.csv")
+data <- read.csv("Analysis_Data/drug_test_NS_NR_F.csv")
+# choose drug
+data <- data[data$Trt == "Nirmatrelvir + Ritonavir", ]
 data$ID_code <- data$ID
 data$ID <- as.numeric(as.factor(data$ID))
+# choose the first 30
+data <- data[data$ID %in% 1:30,]
+
 data <- data[order(c(data$censor), decreasing = T),]
 
 #Preparing data
@@ -51,7 +56,7 @@ data_for_stan <- list(
 )
 #############################################################################
 # Running stan code
-model <- stan_model("Stan_models/TwoCmpt_for_ineffective_arm_fixed.stan",verbose = T)
+model <- stan_model("Stan_models/TwoCmpt_for_ineffective_arm.stan",verbose = T)
 
 fit <- sampling(
   object = model,         # Stan model
@@ -65,6 +70,6 @@ fit <- sampling(
 )
 
 fit
-save(fit, file = "Fit/TwoCmpt_nRNaseP_fixed.RData")
+save(fit, file = "Fit/TwoCmpt_nRNaseP_NR_only.RData")
 
 traceplot(fit, pars = c("loglambda1_0", "loglambda2_0", "logB0_0", "logA0_0"))
