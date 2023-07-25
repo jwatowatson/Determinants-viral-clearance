@@ -1,0 +1,95 @@
+---
+title: "Swab variations"
+format: html
+editor: visual
+author: "Phrutsamon Wongnak"
+date-modified: last-modified
+---
+
+This document aims to describe the variability of sample takers on COVID-19 viral load data. This analysis is a part of the PLATCOV project.
+
+## Settings:
+
+```{r preambule}
+#| echo: false
+#| cache: true
+knitr::opts_chunk$set(cache = T, cache.comments = FALSE,
+                      echo = T, include = TRUE,
+                      dev = "pdf")
+
+```
+
+```{r settings}
+#| echo: true
+#| warning: false
+
+library(ggplot2)
+library(ggforce)
+
+```
+
+## Data Loading:
+
+"res_data" is the viral load data. Whereas "swab_data" may contain both no drug and with study drug.
+
+```{r Data loading}
+
+res_data <- read.csv("Data/Ineffective_analysis.csv")
+str(res_data)
+res_ID_list <- unique(res_data$ID)
+
+swab_data <- read.csv("Data/swab_data_TH1.csv")
+str(swab_data)
+swab_ID_list <- unique(swab_data$ID)
+swab_data <- swab_data[-(190:198),]
+
+ID_list_analysis <- swab_ID_list[which(swab_ID_list %in% res_ID_list)]
+res_data <- res_data[which(res_data$ID %in% ID_list_analysis),]
+
+merged_data <- merge(res_data, swab_data, by.x = c("ID", "Timepoint_ID"), by.y = c("ID", "Day"))
+
+
+write.csv(merged_data, "Data/swabber_analysis.csv", row.names = F)
+```
+
+```{r regression}
+data_analysis <- merged_data #merged_data[merged_data$Timepoint_ID != 14,]
+
+str(data_analysis)
+
+ggplot(data_analysis, aes(x = Time, y = log10_viral_load)) +
+  geom_point() +
+  theme_bw() +
+  facet_wrap_paginate(~ ID, ncol = 4, nrow = 4, page = 2)
+
+
+
+
+
+
+data_new <- NULL
+for(i in ID_list_analysis){
+  subdata <- data_analysis[data_analysis$ID == i,]
+  subdata
+  
+  mod <- lm(log10_viral_load~Timepoint_ID, data = subdata)
+  subdata$resid <- residuals(mod)
+  
+  data_new <- rbind(data_new, subdata)
+}
+
+
+```
+
+```{r plotting}
+
+library(ggplot2)
+
+ggplot(data_new, aes(x = Timepoint_ID, y = resid, col = Swabber)) +
+  geom_point() +
+  theme_bw() +
+  facet_wrap(.~ID, ncol = 5, nrow = 10) +
+  geom_hline(yintercept = 0, col = "red")
+
+
+```
