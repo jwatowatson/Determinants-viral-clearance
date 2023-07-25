@@ -8,7 +8,7 @@ library(dplyr)
 mainDir <- "D:/Determinants-viral-clearance"
 setwd(mainDir)
 
-load(file = "Fit/TwoCmpt_nRNaseP.RData")
+load(file = "Fit/TwoCmpt_nRNaseP_fixed.RData")
 data <- read.csv("Analysis_Data/swabber_analysis.csv")
 data$ID_code <- data$ID
 data$ID <- as.numeric(as.factor(data$ID))
