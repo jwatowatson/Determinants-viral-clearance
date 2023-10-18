@@ -2,11 +2,12 @@ source('../functions.R')
 source('../priors.R')
 #######################################################################
 library(RColorBrewer)
+library(tidyverse)
 library(dplyr)
 #######################################################################
 platcov_dat = read.csv("../Analysis_Data/interim_all_analysis.csv")
-platcov_dat <- platcov_dat[platcov_dat$Trt %in% c("No study drug", "Ivermectin", "Regeneron",
-                                                  "Remdesivir", "Favipiravir", "Molnupiravir", "Nirmatrelvir + Ritonavir"),]
+platcov_dat <- platcov_dat %>% filter(Trt %in% c("No study drug", "Ivermectin")) #"Regeneron",
+                                                  #"Remdesivir", "Favipiravir", "Molnupiravir", "Nirmatrelvir + Ritonavir"),]
 platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
 trt_intervention = unique(platcov_dat$Trt)
 ref_arm = "No study drug"
@@ -56,5 +57,5 @@ model_settings$Nchain <- 4
 save(platcov_dat,
      model_settings,
      all_priors,
-     file = "Rout/model_settings_temporal_splines.RData")
+     file = "../Rout/model_settings_temporal_splines.RData")
 #######################################################################

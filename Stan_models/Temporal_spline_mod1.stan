@@ -21,18 +21,18 @@ functions {
     vector[size(t)] w1 = rep_vector(0, size(t));
     vector[size(t)] w2 = rep_vector(0, size(t));
     if (order==1)
-      for (i in 1:size(t)) // B-splines of order 1 are piece-wise constant
-        b_spline[i] = (ext_knots[ind] <= t[i]) && (t[i] < ext_knots[ind+1]); 
+    for (i in 1:size(t)) // B-splines of order 1 are piece-wise constant
+    b_spline[i] = (ext_knots[ind] <= t[i]) && (t[i] < ext_knots[ind+1]); 
     else {
       if (ext_knots[ind] != ext_knots[ind+order-1])
-        w1 = (to_vector(t) - rep_vector(ext_knots[ind], size(t))) / 
-             (ext_knots[ind+order-1] - ext_knots[ind]);
+      w1 = (to_vector(t) - rep_vector(ext_knots[ind], size(t))) / 
+      (ext_knots[ind+order-1] - ext_knots[ind]);
       if (ext_knots[ind+1] != ext_knots[ind+order])
-        w2 = 1 - (to_vector(t) - rep_vector(ext_knots[ind+1], size(t))) / 
-                 (ext_knots[ind+order] - ext_knots[ind+1]);
+      w2 = 1 - (to_vector(t) - rep_vector(ext_knots[ind+1], size(t))) / 
+      (ext_knots[ind+order] - ext_knots[ind+1]);
       // Calculating the B-spline recursively as linear interpolation of two lower-order splines 
       b_spline = w1 .* build_b_spline(t, ext_knots, ind, order-1) + 
-                 w2 .* build_b_spline(t, ext_knots, ind+1, order-1);
+      w2 .* build_b_spline(t, ext_knots, ind+1, order-1);
     }
     return b_spline;
   }
@@ -82,17 +82,19 @@ data {
 transformed data {
   // For individual random effects
   vector[2] zeros2;
-  for(i in 1:2) zeros2[i] = 0;
-  
   // B-splines for Intercepts
   int num_basis_alpha = num_knots_alpha + spline_degree_alpha - 1; // total number of B-splines
   matrix[num_basis_alpha, n_id] B_alpha;  // matrix of B-splines
   vector[spline_degree_alpha + num_basis_alpha] ext_knots_temp_alpha;
   vector[2*spline_degree_alpha + num_knots_alpha] ext_knots_alpha; // set of extended knots
+  
+  for(i in 1:2) zeros2[i] = 0;
+  
   ext_knots_temp_alpha = append_row(rep_vector(knots_alpha[1], spline_degree_alpha), knots_alpha);
   ext_knots_alpha = append_row(ext_knots_temp_alpha, rep_vector(knots_alpha[num_knots_alpha], spline_degree_alpha));
-  for (ind in 1:num_basis_alpha)
+  for (ind in 1:num_basis_alpha){
     B_alpha[ind,:] = to_row_vector(build_b_spline(study_time, to_array_1d(ext_knots_alpha), ind, spline_degree_alpha + 1));
+  }
   B_alpha[num_knots_alpha + spline_degree_alpha - 1, n_id] = 1; 
 }
 
@@ -105,7 +107,7 @@ parameters {
   real<lower=0> sigma_logvl;
   
   // Population parameters
-  real alpha_0;                             // population intercept
+ // real alpha_0;                             // population intercept
   real beta_0;                              // population slope
   real gamma_rnasep;                        // Adjustment for RNaseP
   vector[K_trt-1] trt_effect;               // Estimates of the treatment effect
@@ -130,18 +132,17 @@ transformed parameters {
   vector[Ntot] beta_cov;
   vector[Ntot] alpha_cov;
   
-
-row_vector[num_basis_alpha] a_alpha;
-vector[n_id] alpha_hat;
-a_alpha[1] = a_raw_alpha[1];
-for (i in 2:num_basis_alpha)
-a_alpha[i] = a_alpha[i-1] + a_raw_alpha[i]*tau_alpha;
-alpha_hat = a0_alpha*to_vector(study_time) + to_vector(a_alpha*B_alpha);
   
+  row_vector[num_basis_alpha] a_alpha;
+  vector[n_id] alpha_hat;
+  a_alpha[1] = a_raw_alpha[1];
+  for (i in 2:num_basis_alpha){
+      a_alpha[i] = a_alpha[i-1] + a_raw_alpha[i]*tau_alpha;
+  }
+  alpha_hat = a0_alpha*to_vector(study_time) + to_vector(a_alpha*B_alpha);
   
   {
     vector[K_trt] trt_effect_prime;
-    
     
     trt_effect_prime = append_row(0, trt_effect);
     trt_slope = trt_mat * trt_effect_prime;
@@ -175,7 +176,7 @@ model {
   for(i in 1:n_id) theta_rand_id[i] ~ multi_normal_cholesky(zeros2, diag_pre_multiply(sigmasq_u, L_Omega));
   
   // Population parameters
-  alpha_0 ~ normal(alpha_0_prior_mean,alpha_0_prior_sd);
+  //alpha_0 ~ normal(alpha_0_prior_mean,alpha_0_prior_sd);
   beta_0 ~ normal(beta_0_prior_mean,beta_0_prior_sd);
   gamma_rnasep ~ normal(0,1);
   slope_coefs ~ normal(0,slope_coefs_sd);
@@ -185,9 +186,9 @@ model {
   
   // Splines for intercepts
   a_raw_alpha ~ normal(0, 1);
-  a0_alpha ~ normal(0, 1);
+  a0_alpha ~ normal(alpha_0_prior_mean,alpha_0_prior_sd);
   tau_alpha ~ normal(0, 1);
-
+  
   //***** Likelihood *****
   // Non censored observations
   log_10_vl[1:N_obs] ~ student_t(t_dof, pred_log10_vl[1:N_obs], sigma_logvl);
