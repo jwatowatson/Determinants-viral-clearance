@@ -56,12 +56,12 @@ model <- stan_model("Stan_models/TwoCmpt_for_ineffective_arm_fixed.stan",verbose
 fit <- sampling(
   object = model,         # Stan model
   data = data_for_stan,            # named list of data
-  chains = 4,             # number of Markov chains
+  chains = 2,             # number of Markov chains
   warmup = 1000,          # number of warmup iterations per chain
-  iter = 4000,            # total number of iterations per chain
-  thin = 2,
-  cores =4,              # number of cores (could use one per chain)
-  refresh = 500
+  iter = 2000,            # total number of iterations per chain
+  #thin = 2,
+  cores =2,              # number of cores (could use one per chain)
+  refresh = 100
 )
 
 fit

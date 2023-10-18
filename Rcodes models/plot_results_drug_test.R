@@ -9,17 +9,17 @@ getwd()
 mainDir <- "D:/Determinants-viral-clearance"
 setwd(mainDir)
 
-load(file = "Fit/TwoCmpt_nRNaseP_NR_only.RData")
+load(file = "Fit/TwoCmpt_nRNaseP_NS_only_fixed_eta2.RData")
 data <- read.csv("Analysis_Data/drug_test_NS_NR_F.csv")
 # choose drug
-data <- data[data$Trt == "Nirmatrelvir + Ritonavir", ]
+data <- data[data$Trt == "No study drug",] #  "Nirmatrelvir + Ritonavir", ]
 data$ID_code <- data$ID
 data$ID <- as.numeric(as.factor(data$ID))
 # choose the first 30
-data <- data[data$ID %in% 1:30,]
+data <- data[data$ID %in% c(1:24, 26:31)  ,] #,] #1:30
 data <- data[order(c(data$censor), decreasing = T),]
 
-samples <- fit@sim$samples[[1]]
+samples <- fit@sim$samples[[4]]
 preds_ind <- which(str_detect(string = names(samples), pattern = "preds"))
 data$preds <- as.vector(sapply(samples[preds_ind], median))
 
@@ -40,7 +40,8 @@ G <- ggplot(data = data) +
   geom_line(mapping = aes(x = Timepoint_ID, y = preds), col = "red") +
   theme_bw() +
   facet_wrap_paginate(~ ID_code, ncol = 6, nrow = 5, page = 1) +
-  scale_y_continuous(breaks = seq(-4,9,2), limits = c(-4,9))
+  scale_y_continuous(breaks = seq(-4,9,2), limits = c(-6,9))
+G
 
 estim_lambda2_ind <- which(str_detect(string = names(samples), pattern = "estim_lambda2"))
 lambda2 <- (lapply(samples[estim_lambda2_ind],  quantile, c(0.025, 0.5, 0.975)))

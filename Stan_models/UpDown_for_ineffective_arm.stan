@@ -54,7 +54,7 @@ transformed parameters{
       real intercept = alpha_0 + theta_rand_id[id[i]][1];
       real a = beta_0[1] ; // no random effect for the first term as does not converge
       real b = beta_0[2] * exp(theta_rand_id[id[i]][2]);
-      real tmax = tmax_pop + theta_rand_id[id[i]][3];
+      real tmax = exp(tmax_pop + theta_rand_id[id[i]][3]);
       pred_log10_vl[i] = gamma_rnasep*RNaseP[i]+intercept+log(a+b)-
       log_sum_exp(log(b)-a*(obs_day[i]-tmax),log(a)+b*(obs_day[i]-tmax));
     }
@@ -83,7 +83,7 @@ model{
   sigmasq_u[2] ~ exponential(1);
   sigmasq_u[3] ~ exponential(1);
  // sigmasq_u[4] ~ exponential(1);
-  L_Omega ~ lkj_corr_cholesky(3); // covariance matrix - random effects for individs
+  L_Omega ~ lkj_corr_cholesky(2); // covariance matrix - random effects for individs
   // individual random effects
   for(i in 1:n_id) theta_rand_id[i] ~ multi_normal_cholesky(zeros, diag_pre_multiply(sigmasq_u, L_Omega));
   

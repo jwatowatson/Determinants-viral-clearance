@@ -56,13 +56,11 @@ transformed parameters{
     for(i in 1:Ntot){
       real lambda1 = exp(loglambda1_0 + theta_rand_id[id[i]][1]);
       real lambda2 = exp(loglambda2_0 + theta_rand_id[id[i]][2]);
-      real A0 = exp(logA0_0 + theta_rand_id[id[i]][3]);
-      real B0 = exp(logB0_0 + theta_rand_id[id[i]][4]);
+      real logA0 = logA0_0 + theta_rand_id[id[i]][3];
+      real logB0 = logB0_0 + theta_rand_id[id[i]][4];
       
-      pred_log10_vl[i] = ((lambda1/(lambda2-lambda1)) * 
-                         A0 * 
-                         (exp(-lambda1 * obs_day[i]) - exp(-lambda2 * obs_day[i]))) + 
-                         (B0 * (exp(-lambda2 * obs_day[i]))) + 
+      pred_log10_vl[i] = log10(((lambda1/(lambda2-lambda1)) * exp(logA0) * (exp(-lambda1 * obs_day[i]) - exp(-lambda2 * obs_day[i]))) + 
+                         (exp(logB0) * (exp(-lambda2 * obs_day[i])))) + 
                          gamma_rnasep*RNaseP[i];
 
     }
@@ -94,7 +92,7 @@ model{
   sigmasq_u[2] ~ exponential(1);
   sigmasq_u[3] ~ exponential(1);
   sigmasq_u[4] ~ exponential(1);
-  L_Omega ~ lkj_corr_cholesky(4); // covariance matrix - random effects for individs
+  L_Omega ~ lkj_corr_cholesky(2); // covariance matrix - random effects for individs
   // individual random effects
   for(i in 1:n_id) theta_rand_id[i] ~ multi_normal_cholesky(zeros, diag_pre_multiply(sigmasq_u, L_Omega));
   

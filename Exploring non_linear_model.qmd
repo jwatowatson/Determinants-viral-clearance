@@ -481,7 +481,7 @@ vl_cal_m4 <- function(A0, B0, lambda1, lambda2, t){
 #Parameter lists
 A0 <- c(4,6,8)
 B0 <- c(4, 6, 8)
-lambda2 <- c(0.1, 0.2, 0.4)
+lambda2 <- 5*c(0.1, 0.2, 0.4)
 lambda1 <- 3*c(0.15, 0.3, 0.6)
 
 params <- expand.grid(A0 = A0, B0 = B0, lambda1 = lambda1, lambda2 = lambda2)
@@ -490,7 +490,7 @@ params <- expand.grid(A0 = A0, B0 = B0, lambda1 = lambda1, lambda2 = lambda2)
 A0_def <- 6
 B0_def <- 6
 lambda1_def <- 3*0.3
-lambda2_def <- 0.2
+lambda2_def <- 5*0.2
 ```
 
 ```{r Model  4 Two-compartment kinetics excecution}
