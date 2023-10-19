@@ -22,6 +22,8 @@ print(model_settings[job_i, ])
 
 Dmax <- model_settings$Dmax[job_i]
 
+platcov_dat <- platcov_dat[platcov_dat$Trt %in% c("No study drug", "Ivermectin"),]
+
 # Analysis data
 platcov_dat_analysis = 
   platcov_dat %>% ungroup() %>%

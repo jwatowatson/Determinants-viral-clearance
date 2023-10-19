@@ -82,12 +82,13 @@ data {
 transformed data {
   // For individual random effects
   vector[2] zeros2;
+  
   // B-splines for Intercepts
   int num_basis_alpha = num_knots_alpha + spline_degree_alpha - 1; // total number of B-splines
   matrix[num_basis_alpha, n_id] B_alpha;  // matrix of B-splines
-  vector[spline_degree_alpha + num_basis_alpha] ext_knots_temp_alpha;
+  vector[spline_degree_alpha + num_knots_alpha] ext_knots_temp_alpha;
   vector[2*spline_degree_alpha + num_knots_alpha] ext_knots_alpha; // set of extended knots
-  
+
   for(i in 1:2) zeros2[i] = 0;
   
   ext_knots_temp_alpha = append_row(rep_vector(knots_alpha[1], spline_degree_alpha), knots_alpha);
