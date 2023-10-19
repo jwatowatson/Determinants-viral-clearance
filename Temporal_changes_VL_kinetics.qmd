@@ -1,0 +1,233 @@
+---
+title: "Temporal changes in viral load kinetics"
+author: "Phrutsamon Wongnak & James Watson"
+format: html
+editor: visual
+---
+
+```{r preambule}
+knitr::opts_chunk$set(cache = F, cache.comments = FALSE,
+                      echo = F, include = TRUE, 
+                      fig.width = 8, fig.height = 8,
+                      fig.pos = 'H',dev = 'png', dpi = 300)
+
+```
+
+```{r setup}
+library(rstan)
+library(tidyverse)
+library(kableExtra)
+library(finalfit)
+library(RColorBrewer)
+library(lubridate)
+library(lme4)
+library(survival)
+library(survminer)
+library(gridExtra)
+
+## information on software/hardware used
+version
+sessionInfo()
+
+rstan_options(auto_write = TRUE)
+## parameters for the analysis
+Dmax = 8
+RUN_MODELS = F
+add_epoch = T # if using non-concurrent controls
+
+my_probs = c(0.025, 0.1, .5, .9, .975)
+source('functions.R')
+trt_colors = get_trt_colors()
+```
+
+## *Load data*
+
+*Set up analysis*
+
+```{r load_data}
+intervention = 'interim_all' # prefix of analysis file
+ref_arm = 'No study drug'
+study_threshold = 1.2 # depending on comparison with no study drug or positive control
+```
+
+```{r define_population}
+#| echo: false
+# set as file with relevant dataset
+itt_population_all = get_itt_population()
+
+f_name = paste0('Analysis_Data/',intervention,'_analysis.csv')
+platcov_dat = read.csv(f_name)
+platcov_dat <- platcov_dat %>% filter(Trt %in% c("No study drug", 
+                                                 "Ivermectin",
+                                                 "Regeneron",
+                                                 "Remdesivir",
+                                                 "Favipiravir", 
+                                                 "Molnupiravir", 
+                                                 "Nirmatrelvir + Ritonavir"))
+
+platcov_dat$Trt[platcov_dat$Trt=='Nirmatrelvir + Ritonavir']='Nirmatrelvir'
+
+platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
+trt_intervention = unique(platcov_dat$Trt)
+
+# interventions
+if(length(trt_intervention)==0) stop('no interventions!')
+trts = trt_intervention[trt_intervention!=ref_arm] # get interventions
+```
+
+## *Make modified intention to treat population*
+
+```{r make_analysis_data}
+#| echo: false
+platcov_dat = platcov_dat %>% group_by(ID) %>%
+  mutate(
+    mITT = any(Per_protocol_sample==1 & Timepoint_ID>=3) &
+      (sum(CT_NS<40)>2))
+
+pop_table = platcov_dat %>% distinct(ID, .keep_all = T)
+table(Intervention=pop_table$Trt, `mITT population` = pop_table$mITT)
+```
+
+## *Baseline characteristics*
+
+```{r}
+#| echo: false
+platcov_dat = platcov_dat %>% group_by(ID, Timepoint_ID) %>%
+  mutate(daily_VL = mean(log10_viral_load),
+         daily_censor = all(censor=='left')) %>% 
+  ungroup() %>%
+  mutate(Sex = as.factor(ifelse(Sex==1,'Male','Female')),
+         Site = as.factor(Site),
+         Trt = factor(Trt, levels=c(ref_arm, trts)),
+         Vaccinated = as.factor(ifelse(N_dose>0,'Yes','No')),
+         Variant = as.factor(Variant),
+         Time_since_last_dose = ifelse(is.na(Time_since_last_dose)&Vaccinated=='No',
+                                       600,Time_since_last_dose),
+         trt_color = 
+           as.character(plyr::mapvalues(Trt,
+                                        from = names(trt_colors),
+                                        to = trt_colors)),
+         Study_time = as.numeric(difftime(Rand_date,min(Rand_date),units = 'weeks')),
+         Study_time = scale(Study_time) #normalise
+  )
+
+Baseline_data = platcov_dat %>% ungroup() %>% 
+  distinct(ID, .keep_all = T) %>%
+  filter(Timepoint_ID==0) %>% 
+  mutate(Baseline.viral.load = daily_VL)
+
+
+tab.ff <- Baseline_data %>% filter(mITT) %>%
+  summary_factorlist(
+    dependent = "Trt", # name of grouping / treatment variable
+    explanatory = c("Site", "Age", 'BMI', "Weight",
+                    "Baseline.viral.load",'Sex','Fever_Baseline',
+                    "Variant",'Symptom_onset','Vaccinated'),
+    total_col = F, # add column with statistics for the whole sample
+    add_row_total = F, # add column with number of valid cases
+    include_row_missing_col = FALSE,
+    add_dependent_label = T,
+    na_include = TRUE # make variables' missing data explicit
+  ) 
+
+df <- knitr::kable(tab.ff, format = 'latex')
+writeLines(df, 'df.tex')
+
+tab.ff = tab.ff%>%
+  kbl(
+    caption = NULL,
+    booktabs = TRUE,
+    align = "lrlrrr",
+  ) %>%
+  kable_classic(full_width = FALSE)
+tab.ff
+```
+
+Some simple models for the baseline viral load. Which covariates best predict a high baseline viral load?
+
+```{r baseline_VL_temporal_trend}
+baseline_VL_time = ggplot(data=Baseline_data,
+                          aes(x=Rand_date,
+                              y=Baseline.viral.load, col=Variant)) +
+  geom_point() + 
+  labs(x = "Randomisation date", y = 'Viral load at enrolment')+
+  scale_y_continuous(breaks = 1:9,
+                     labels = function(x) sprintf("10^%d", x))+
+  theme_minimal(base_size = 18)+
+  geom_smooth(method = mgcv::gam, formula = y~s(x),
+              se = T, color = "black", aes(group = 1))
+# guides(col = 'none')
+baseline_VL_time
+mod_baseline = lm(Baseline.viral.load~BMI+Age+Sex+Symptom_onset+Vaccinated+Variant+Site+Fever_Baseline,
+                  data = Baseline_data)
+summary(mod_baseline)
+```
+
+### Rate of clearance over time
+
+
+```{r}
+# Analysis data
+platcov_dat_analysis = 
+  platcov_dat %>% ungroup() %>%
+  filter(Time <= Dmax, mITT, Timepoint_ID < ceiling(Dmax)) %>%
+  arrange(log10_viral_load==log10_cens_vl) %>%
+  mutate(Variant = as.factor(Variant),
+         Site = as.factor(Site),
+         RnaseP_scaled = scale(40 - CT_RNaseP,scale = F),
+         Mean_age = mean(Age[!duplicated(ID)]),
+         SD_age = sd(Age[!duplicated(ID)]),
+         Age_scaled = (Age-Mean_age)/SD_age,
+         Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
+```
+
+```{r slopes_time, fig.width=10}
+if(RUN_MODELS){
+  mod_naive = brm(log10_viral_load|cens(censor) ~ Time+Site+RnaseP_scaled+(1+Time|ID),
+                  data = platcov_dat_analysis,
+                  prior = c(prior(lkj(2), class = "cor"),
+                            prior(normal(5, 5), class = Intercept),
+                            prior(constant(7), class = 'nu')),
+                  family = 'student', cores = 4, chains = 4)
+  save(mod_naive, file = 'Rout/brms_fit.RData')
+} else {
+  load('Rout/brms_fit.RData')
+}
+
+
+thetas = ranef(mod_naive, summary = F)
+mean_slopes = fixef(mod_naive, summary = F)
+slopes_randef = apply(thetas$ID[,,'Time']+mean_slopes[,'Time'], 2,
+                      quantile, probs=c(0.1, 0.5, 0.9))
+slopes_dat = merge(data.frame(ID=colnames(slopes_randef),
+                              slope_re = slopes_randef[2, ],
+                              slope_re_lower = slopes_randef[1, ],
+                              slope_re_upper = slopes_randef[3, ]),
+                   platcov_dat[!duplicated(platcov_dat$ID),],
+                   by = 'ID') %>%
+  arrange(Rand_date)
+mod_gam = mgcv::gam(slope_re ~ s(Study_time) + Trt, data=slopes_dat)
+summary(mod_gam)
+par(las=1, family='serif',cex.lab=1.3, cex.axis=1.3)
+plot(slopes_dat$Rand_date, slopes_dat$slope_re,
+     ylab='Viral reduction per day (log10 units)',
+     ylim=c(min(slopes_dat$slope_re_lower),
+            max(slopes_dat$slope_re_upper)),
+     col=adjustcolor(slopes_dat$trt_color,.5),
+     xlab='Randomisation date', panel.first=grid(), pch=16)
+abline(h=0)
+for(i in 1:nrow(slopes_dat)){
+  lines(rep(slopes_dat$Rand_date[i],2),
+        c(slopes_dat$slope_re_lower[i], slopes_dat$slope_re_upper[i]),
+        col=adjustcolor(slopes_dat$trt_color[i],alpha.f = .3))
+}
+legend('bottomleft',legend = unique(slopes_dat$Trt), col = unique(slopes_dat$trt_color),pch=16,lwd=2,inset=0.02)
+
+ind = slopes_dat$Trt=='No study drug'
+lines(slopes_dat$Rand_date[ind], predict(mod_gam)[ind],lwd=3)
+
+summary(lm(slope_re~Rand_date+Trt, data = slopes_dat))
+```
+
+
+

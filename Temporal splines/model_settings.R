@@ -6,8 +6,12 @@ library(tidyverse)
 library(dplyr)
 #######################################################################
 platcov_dat = read.csv("../Analysis_Data/interim_all_analysis.csv")
-platcov_dat <- platcov_dat %>% filter(Trt %in% c("No study drug", "Ivermectin")) #"Regeneron",
-                                                  #"Remdesivir", "Favipiravir", "Molnupiravir", "Nirmatrelvir + Ritonavir"),]
+platcov_dat <- platcov_dat %>% filter(Trt %in% c("No study drug", "Ivermectin",
+                                                 "Regeneron",
+                                                 "Remdesivir",
+                                                 "Favipiravir", 
+                                                 "Molnupiravir", 
+                                                 "Nirmatrelvir + Ritonavir"))
 platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
 trt_intervention = unique(platcov_dat$Trt)
 ref_arm = "No study drug"
@@ -45,7 +49,7 @@ model_settings <-  unique(do.call(expand.grid, list("Dmax" = Dmax,
                                                     "spline_degree_alpha" = spline_degree_alpha#,
                                                     #"num_knots_beta" = num_knots_beta,
                                                     #"spline_degree_beta" = spline_degree_beta
-                                                    )))
+)))
 model_settings$ref_arm <- ref_arm
 model_settings$prior <- 1
 model_settings$cov_matrices <- 1
