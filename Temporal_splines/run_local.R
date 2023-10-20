@@ -12,7 +12,7 @@ library(dplyr)
 source('../functions.R')
 source('../priors.R')
 
-load('../Rout/model_settings_temporal_splines.RData')
+load('Rout/model_settings_temporal_splines_mod2.RData')
 
 Max_job = nrow(model_settings)
 if(job_i > Max_job) stop('no model setting corresponding to job ID')
