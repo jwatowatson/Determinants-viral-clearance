@@ -41,10 +41,10 @@ Dmax <- c(7)
 mod <- c(#"../Stan_models/Temporal_spline_mod1.stan")
          "../Stan_models/Temporal_spline_mod2_w_slope.stan"
          )
-num_knots_alpha <- seq(4,10,1)
-spline_degree_alpha <- seq(1,4,1)
-num_knots_beta <- seq(4,10,1)
-spline_degree_beta <- seq(1,4,1)
+num_knots_alpha <- 10 #seq(4,10,1)
+spline_degree_alpha <- c(2,4) #seq(1,2,1)
+num_knots_beta <- 10 #seq(4,10,1)
+spline_degree_beta <- c(2,4) #seq(1,2,1)
 model_settings <-  unique(do.call(expand.grid, list("Dmax" = Dmax,
                                                     "mod" = mod,
                                                     "num_knots_alpha" = num_knots_alpha,

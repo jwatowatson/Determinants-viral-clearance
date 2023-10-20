@@ -7,7 +7,7 @@
 #SBATCH -o /well/moru-batty/users/lcd199/PLATCOV-SAP/Determinants-viral-clearance/Temporal_splines/o_and_e_files/output.o%A_%a.out
 #SBATCH -e /well/moru-batty/users/lcd199/PLATCOV-SAP/Determinants-viral-clearance/Temporal_splines/o_and_e_files/output.e%A_%a.out
 #SBATCH -p short
-#SBATCH --array 1-28
+#SBATCH --array 1-4
 
 
 echo started=`date`

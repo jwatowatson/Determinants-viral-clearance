@@ -22,7 +22,7 @@ print(model_settings[job_i, ])
 
 Dmax <- model_settings$Dmax[job_i]
 
-platcov_dat <- platcov_dat[platcov_dat$Trt %in% c("No study drug", "Ivermectin"),]
+#platcov_dat <- platcov_dat[platcov_dat$Trt %in% c("No study drug", "Ivermectin"),]
 
 # Analysis data
 platcov_dat_analysis = 
@@ -37,7 +37,7 @@ platcov_dat_analysis =
          Age_scaled = (Age-Mean_age)/SD_age,
          Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
 
-covs_base = c('Study_time','Site')
+covs_base = c('Site') #'Study_time'
 covs_full=c(covs_base, 'Age_scaled','Symptom_onset','N_dose')
 
 stan_input_job = 
@@ -72,15 +72,22 @@ analysis_data_stan$x_slope = x_slope
 analysis_data_stan$K_cov_slope=ncol(x_slope)
 
 num_knots_alpha <- model_settings$num_knots_alpha[job_i]
+num_knots_beta <- model_settings$num_knots_beta[job_i]
+
 study_time <- as.vector(unique(platcov_dat_analysis[,c("ID", "Study_time")])[,2])
 study_time <- study_time[[1]][,1]
-knots_alpha <- unname(quantile(study_time, probs=seq(from=0, to=1, length.out = num_knots_alpha)))
 
-analysis_data_stan$n_id
+knots_alpha <- unname(quantile(study_time, probs=seq(from=0, to=1, length.out = num_knots_alpha)))
+knots_beta <- unname(quantile(study_time, probs=seq(from=0, to=1, length.out = num_knots_beta)))
 
 analysis_data_stan$num_knots_alpha <- num_knots_alpha
 analysis_data_stan$knots_alpha <- knots_alpha
 analysis_data_stan$spline_degree_alpha <- model_settings$spline_degree_alpha[job_i]
+
+analysis_data_stan$num_knots_beta <- num_knots_beta
+analysis_data_stan$knots_beta <- knots_beta
+analysis_data_stan$spline_degree_beta <- model_settings$spline_degree_beta[job_i]
+
 analysis_data_stan$study_time <- study_time
 
 # sample posterior
