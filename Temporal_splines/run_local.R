@@ -12,7 +12,7 @@ library(dplyr)
 source('../functions.R')
 source('../priors.R')
 
-load('Rout/model_settings_temporal_splines_mod2.RData')
+load('Rout/model_settings_all_analysis.RData')
 
 Max_job = nrow(model_settings)
 if(job_i > Max_job) stop('no model setting corresponding to job ID')
@@ -37,7 +37,9 @@ platcov_dat_analysis =
          Age_scaled = (Age-Mean_age)/SD_age,
          Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
 
-covs_base = c('Site') #'Study_time'
+if(grepl("spline", model_settings[job_i,]$mod)){covs_base = c('Site')}else{covs_base = c('Site', 'Study_time')}
+
+#covs_base = c('Site') #'Study_time'
 covs_full=c(covs_base, 'Age_scaled','Symptom_onset','N_dose')
 
 stan_input_job = 
@@ -100,11 +102,11 @@ out = sampling(mod,
                warmup=model_settings$Nwarmup[job_i],
                save_warmup = FALSE,
                seed=job_i,
-               pars=c('L_Omega', "a_alpha"), # we don't save this as it takes up lots of memory!
+               pars=c("a_alpha"), # we don't save this as it takes up lots of memory!
                include=FALSE)
 
 
-save(out, file = paste0('Rout/model_fits_',job_i,'.RData'))# save output
+save(out, file = paste0('Rout_all_analysis/model_fits_',job_i,'.RData'))# save output
 
 writeLines('Finished job')
 

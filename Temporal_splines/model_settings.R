@@ -6,12 +6,12 @@ library(tidyverse)
 library(dplyr)
 #######################################################################
 platcov_dat = read.csv("../Analysis_Data/interim_all_analysis.csv")
-platcov_dat <- platcov_dat %>% filter(Trt %in% c("No study drug", "Ivermectin",
-                                                 "Regeneron",
-                                                 "Remdesivir",
-                                                 "Favipiravir", 
-                                                 "Molnupiravir", 
-                                                 "Nirmatrelvir + Ritonavir"))
+# platcov_dat <- platcov_dat %>% filter(Trt %in% c("No study drug", "Ivermectin",
+#                                                  "Regeneron",
+#                                                  "Remdesivir",
+#                                                  "Favipiravir", 
+#                                                  "Molnupiravir", 
+#                                                  "Nirmatrelvir + Ritonavir"))
 platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
 trt_intervention = unique(platcov_dat$Trt)
 ref_arm = "No study drug"
@@ -37,14 +37,14 @@ platcov_dat = platcov_dat %>% ungroup() %>%
   ungroup() %>%
   mutate(trt_color = brewer.pal(name = 'Dark2',8)[c(1,7)][as.numeric(Trt)]) 
 #######################################################################
-Dmax <- c(7)
-mod <- c(#"../Stan_models/Temporal_spline_mod1.stan")
+Dmax <- c(5,7)
+mod <- c("../Stan_models/Linear_model_RNaseP.stan",
          "../Stan_models/Temporal_spline_mod2_w_slope.stan"
          )
 num_knots_alpha <- 10 #seq(4,10,1)
-spline_degree_alpha <- c(2,4) #seq(1,2,1)
+spline_degree_alpha <- c(4) #seq(1,2,1)
 num_knots_beta <- 10 #seq(4,10,1)
-spline_degree_beta <- c(2,4) #seq(1,2,1)
+spline_degree_beta <- c(4) #seq(1,2,1)
 model_settings <-  unique(do.call(expand.grid, list("Dmax" = Dmax,
                                                     "mod" = mod,
                                                     "num_knots_alpha" = num_knots_alpha,
@@ -63,5 +63,5 @@ model_settings$Nchain <- 4
 save(platcov_dat,
      model_settings,
      all_priors,
-     file = "Rout/model_settings_temporal_splines_mod2.RData")
+     file = "Rout/model_settings_all_analysis.RData")
 #######################################################################
