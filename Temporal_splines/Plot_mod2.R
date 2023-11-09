@@ -71,17 +71,29 @@ Baseline_vl_data_ALL <- NULL
   post_trt_beta_cov <- rstan::extract(out, "beta_cov")[[1]]
   
   slope_ALL <- matrix(NA, ncol = n_id, nrow = 1000)
+  slope_trt <- matrix(NA, ncol = n_id, nrow = 1000)
+  
+  
   for(j in 1:n_id){
     slope_ALL[,j]  <- post_beta_hat[,j] * exp(post_trt_slope[,ind_start[j]] +  post_trt_theta_rand_id[,j,2] +  post_trt_beta_cov[,ind_start[j]])
+    slope_trt[,j] <-  post_beta_hat[,j] * exp(post_trt_slope[,ind_start[j]])
   }
   
+  
   slope_summarize <- apply(slope_ALL, 2, quantile, c(0.025, 0.5, 0.975))
+  slope_trt_summarize <- apply(slope_trt, 2, quantile, c(0.025, 0.5, 0.975))
   post_beta_hat_summarize <- apply(post_beta_hat, 2, quantile, c(0.025, 0.5, 0.975))
+  
+  
   
   data_for_plot_slope <- platcov_dat_analysis[ind_start,]
   data_for_plot_slope$slope_low <- slope_summarize[1,]
   data_for_plot_slope$slope_med <- slope_summarize[2,]
   data_for_plot_slope$slope_up <- slope_summarize[3,]
+  
+  data_for_plot_slope$slope_trt_low <- slope_trt_summarize[1,]
+  data_for_plot_slope$slope_trt_med <- slope_trt_summarize[2,]
+  data_for_plot_slope$slope_trt_up <- slope_trt_summarize[3,]
   
   data_for_plot_slope$beta_hat <- post_beta_hat_summarize[2,]
   
