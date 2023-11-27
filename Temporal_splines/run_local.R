@@ -12,7 +12,7 @@ library(dplyr)
 source('../functions.R')
 source('../priors.R')
 
-load('Rout/model_settings_all_analysis.RData')
+load('../Rout/model_settings_all_analysis.RData')
 
 Max_job = nrow(model_settings)
 if(job_i > Max_job) stop('no model setting corresponding to job ID')
@@ -106,7 +106,7 @@ out = sampling(mod,
                include=FALSE)
 
 
-save(out, file = paste0('Rout_all_analysis/model_fits_',job_i,'.RData'))# save output
+save(out, file = paste0('Rout/model_fits_fixed_trt',job_i,'.RData'))# save output
 
 writeLines('Finished job')
 
