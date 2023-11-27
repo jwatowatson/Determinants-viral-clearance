@@ -24,6 +24,7 @@ library(lme4)
 library(survival)
 library(survminer)
 library(gridExtra)
+library(brms)
 
 ## information on software/hardware used
 version
@@ -31,7 +32,7 @@ sessionInfo()
 
 rstan_options(auto_write = TRUE)
 ## parameters for the analysis
-Dmax = 8
+Dmax = 5.5
 RUN_MODELS = F
 add_epoch = T # if using non-concurrent controls
 
@@ -165,7 +166,6 @@ summary(mod_baseline)
 
 ### Rate of clearance over time
 
-
 ```{r}
 # Analysis data
 platcov_dat_analysis = 
@@ -181,53 +181,100 @@ platcov_dat_analysis =
          Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
 ```
 
-```{r slopes_time, fig.width=10}
+```{r }
 if(RUN_MODELS){
-  mod_naive = brm(log10_viral_load|cens(censor) ~ Time+Site+RnaseP_scaled+(1+Time|ID),
+  
+  my_form = bf(log10_viral_load|cens(censor) ~ Time*Trt+Site+RnaseP_scaled+(1+Time|ID))
+  get_prior(formula = my_form,data = platcov_dat_analysis,family = 'student')
+  mod_naive = brm(formula = my_form,
                   data = platcov_dat_analysis,
                   prior = c(prior(lkj(2), class = "cor"),
                             prior(normal(5, 5), class = Intercept),
+                            prior(normal(0, 1), class='b'),
                             prior(constant(7), class = 'nu')),
                   family = 'student', cores = 4, chains = 4)
   save(mod_naive, file = 'Rout/brms_fit.RData')
 } else {
   load('Rout/brms_fit.RData')
 }
-
-
-thetas = ranef(mod_naive, summary = F)
-mean_slopes = fixef(mod_naive, summary = F)
-slopes_randef = apply(thetas$ID[,,'Time']+mean_slopes[,'Time'], 2,
-                      quantile, probs=c(0.1, 0.5, 0.9))
-slopes_dat = merge(data.frame(ID=colnames(slopes_randef),
-                              slope_re = slopes_randef[2, ],
-                              slope_re_lower = slopes_randef[1, ],
-                              slope_re_upper = slopes_randef[3, ]),
-                   platcov_dat[!duplicated(platcov_dat$ID),],
-                   by = 'ID') %>%
-  arrange(Rand_date)
-mod_gam = mgcv::gam(slope_re ~ s(Study_time) + Trt, data=slopes_dat)
-summary(mod_gam)
-par(las=1, family='serif',cex.lab=1.3, cex.axis=1.3)
-plot(slopes_dat$Rand_date, slopes_dat$slope_re,
-     ylab='Viral reduction per day (log10 units)',
-     ylim=c(min(slopes_dat$slope_re_lower),
-            max(slopes_dat$slope_re_upper)),
-     col=adjustcolor(slopes_dat$trt_color,.5),
-     xlab='Randomisation date', panel.first=grid(), pch=16)
-abline(h=0)
-for(i in 1:nrow(slopes_dat)){
-  lines(rep(slopes_dat$Rand_date[i],2),
-        c(slopes_dat$slope_re_lower[i], slopes_dat$slope_re_upper[i]),
-        col=adjustcolor(slopes_dat$trt_color[i],alpha.f = .3))
-}
-legend('bottomleft',legend = unique(slopes_dat$Trt), col = unique(slopes_dat$trt_color),pch=16,lwd=2,inset=0.02)
-
-ind = slopes_dat$Trt=='No study drug'
-lines(slopes_dat$Rand_date[ind], predict(mod_gam)[ind],lwd=3)
-
-summary(lm(slope_re~Rand_date+Trt, data = slopes_dat))
+my_preds = apply(posterior_predict(mod_naive), 2, quantile)
 ```
 
+```{r slopes_time, fig.width=8, fig.height=8}
+slopes_dat = platcov_dat_analysis %>% distinct(ID,.keep_all = T) %>%
+  arrange(Rand_date)
+slopes_dat$slope=NA
+for(i in 1:nrow(slopes_dat)){
+  ind = which(platcov_dat_analysis$ID==slopes_dat$ID[i])
+  slopes_dat$slope[i] = coef(lm(my_preds[3,ind]~platcov_dat_analysis$Time[ind]))[2]
+}
+mod_gam_NSD = mgcv::gam(slope ~ s(Study_time,k=4), data=slopes_dat%>%filter(Trt=='No study drug'))
 
+par(las=1, family='serif',cex.lab=1.3, cex.axis=1.3, mfrow=c(3,2))
+for(my_trt in list(t1='No study drug', 
+                   t2='Nirmatrelvir',
+                   t3=c('Remdesivir','Molnupiravir'),
+                   t4='Favipiravir',
+                   t5='Ivermectin',
+                   t6='Regeneron')){
+  
+  slopes_my_trt = slopes_dat %>% filter(Trt %in% my_trt)
+  slopes_my_trt$Var = as.factor(as.character(slopes_my_trt$Variant))
+  plot(slopes_my_trt$Rand_date, slopes_my_trt$slope,
+       ylab='Viral reduction per day (log10 units)',
+       ylim=range(slopes_dat$slope),
+       col=adjustcolor(slopes_my_trt$trt_color,.5),
+       xlim = range(slopes_dat$Rand_date),
+       xlab='Randomisation date', panel.first=grid(), 
+       pch=15)#+as.numeric(slopes_my_trt$Var))
+  abline(h=0)
+  
+  my_leg = paste(unique(slopes_my_trt$Trt),
+                 'n=',table(as.character(slopes_my_trt$Trt)))
+  legend('bottomleft',legend = my_leg,
+         col = unique(slopes_my_trt$trt_color),
+         pch=16,lwd=2,inset=0.02)
+  
+  for(tt in my_trt){
+    dat = slopes_my_trt %>% filter(Trt==tt)
+    
+    writeLines(sprintf('******* Doing trt %s', tt))
+    mods=list(); xs = list()
+    if(tt == 'Regeneron'){
+      dat$Subgroup = as.character(dat$Variant)
+      dat$Subgroup = ifelse(dat$Variant=='BA.1' | 
+                              dat$Variant=='BA.2.75',
+                            'Omicron G446S mutated', dat$Subgroup)
+      dat$Subgroup = ifelse(dat$Variant!='Delta' & 
+                              dat$Subgroup!='Omicron G446S mutated',
+                            'Omicron not G446S mutated', dat$Subgroup)
+      
+      for(ss in 1:length(unique(dat$Subgroup))){
+        dat_ss = dat%>%filter(Subgroup==unique(dat$Subgroup)[ss])
+        mods[[ss]] = 
+          lm(slope ~ Study_time,data=dat_ss)
+        xs[[ss]] = dat_ss$Rand_date
+      }
+    } else {
+      mods = list(mod1=lm(slope ~ Study_time, data=dat))
+      xs = list(date=dat$Rand_date)
+      print(summary(mods[[1]]))
+    }
+    
+    if('No study drug' != tt) {
+      for(i in 1:length(mods))
+        lines(xs[[i]], predict(mods[[i]]),lwd=3,
+              col=dat$trt_color)
+    }
+  }
+  
+  lines(slopes_dat$Rand_date[slopes_dat$Trt=='No study drug'],
+        predict(mod_gam_NSD),lwd=3,lty=2,
+        col=(slopes_dat$trt_color[slopes_dat$Trt=='No study drug']))
+  
+}
 
+writeLines(sprintf('Viral clearance half-lives in the no study drug arm have gone from %s hours to %s hours',
+                   round(-24*log10(2)/predict(mod_gam_NSD)[1]),
+                   round(-24*log10(2)/last(predict(mod_gam_NSD)))))
+```

@@ -40,9 +40,9 @@ source('functions.R')
 trt_colors = get_trt_colors()
 ```
 
-## *Load data*
+## Load data
 
-*Set up analysis*
+Set up analysis
 
 ```{r load_data}
 intervention = 'interim_all' # prefix of analysis file
@@ -59,24 +59,34 @@ f_name = paste0('Analysis_Data/',intervention,'_analysis.csv')
 platcov_dat = read.csv(f_name)
 platcov_dat$Trt[platcov_dat$Trt=='Nirmatrelvir + Ritonavir']='Nirmatrelvir'
 
-platcov_dat = platcov_dat %>% filter(!Trt %in% c('Ensitrelvir','Nitazoxanide'),
-                                     !Swab_ID %in% c('No location','Saliva'))
+platcov_dat = platcov_dat %>% 
+  filter(!Trt %in% c('Ensitrelvir','Fluoxetine',
+                     'Evusheld',
+                     'Nirmatrelvir + Ritonavir + Molnupiravir',
+                     'Nitazoxanide'),
+         !Swab_ID %in% c('No location','Saliva'))
 platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
 trt_intervention = unique(platcov_dat$Trt)
 
-if(!all(platcov_dat$ID %in% itt_population_all$ID)) stop('IDs do not match ITT population')
+platcov_dat$ID = gsub(pattern = 'LA8',replacement = 'LA08',x = platcov_dat$ID,fixed = T)
+platcov_dat$ID = gsub(pattern = 'PK1',replacement = 'PK01',x = platcov_dat$ID,fixed = T)
+
+if(!all(platcov_dat$ID %in% itt_population_all$ID)) {
+  print(unique(platcov_dat$ID[!platcov_dat$ID %in% itt_population_all$ID]))
+  stop('IDs do not match ITT population')
+}
 
 for(tt in unique(trt_intervention)){
   writeLines(sprintf('Missing patients in %s arm:',tt))
   print(itt_population_all$ID[itt_population_all$Treatment==tt &
-                          !itt_population_all$ID %in% platcov_dat$ID])
+                                !itt_population_all$ID %in% platcov_dat$ID])
 }
 # interventions
 if(length(trt_intervention)==0) stop('no interventions!')
 trts = trt_intervention[trt_intervention!=ref_arm] # get interventions
 ```
 
-## *Make modified intention to treat population*
+## Make modified intention to treat population
 
 ```{r make_analysis_data}
 #| echo: false
@@ -89,7 +99,7 @@ pop_table = platcov_dat %>% distinct(ID, .keep_all = T)
 table(Intervention=pop_table$Trt, `mITT population` = pop_table$mITT)
 ```
 
-## *Baseline characteristics*
+## Baseline characteristics
 
 ```{r}
 #| echo: false
@@ -106,11 +116,11 @@ platcov_dat = platcov_dat %>% group_by(ID, Timepoint_ID) %>%
                                        600,Time_since_last_dose),
          trt_color = 
            as.character(plyr::mapvalues(Trt,
-                                   from = names(trt_colors),
-                                   to = trt_colors)),
+                                        from = names(trt_colors),
+                                        to = trt_colors)),
          Study_time = as.numeric(difftime(Rand_date,min(Rand_date),units = 'weeks')),
          Study_time = scale(Study_time) #normalise
-         )
+  )
 
 Baseline_data = platcov_dat %>% ungroup() %>% 
   distinct(ID, .keep_all = T) %>%
@@ -158,11 +168,19 @@ baseline_VL_time = ggplot(data=Baseline_data,
   theme_minimal(base_size = 18)+
   geom_smooth(method = mgcv::gam, formula = y~s(x),
               se = T, color = "black", aes(group = 1))
-  # guides(col = 'none')
+# guides(col = 'none')
 baseline_VL_time
 mod_baseline = lm(Baseline.viral.load~BMI+Age+Sex+Symptom_onset+Vaccinated+Variant+Site+Fever_Baseline,
                   data = Baseline_data)
 summary(mod_baseline)
+
+
+
+mod_symptoms = mgcv::gam(Symptom_onset ~ s(Study_time), data = Baseline_data %>% filter(Site=='th001'))
+
+mod_base_VL = mgcv::gam(Baseline.viral.load ~ s(Symptom_onset,k=3)+s(Study_time)+Fever_Baseline,
+                        data = Baseline_data %>% filter(Site=='th001'))
+summary(mod_base_VL)
 ```
 
 ### All VL data
@@ -171,8 +189,8 @@ summary(mod_baseline)
 platcov_dat %>% ggplot(aes(x=Time, y = daily_VL)) +
   geom_point(aes(colour=daily_censor),alpha=0.2)+ 
   geom_smooth()+
-   labs(x = "Days from randomisation", 
-        y = 'Viral load')+
+  labs(x = "Days from randomisation", 
+       y = 'Viral load')+
   scale_y_continuous(breaks = 1:9,
                      labels = function(x) sprintf("10^%d", x))+
   theme_minimal(base_size = 18)
@@ -284,7 +302,7 @@ igg_d14=Baseline_data_sero %>%
 grid.arrange(igg_d0, igg_d3, igg_d7, igg_d14, nrow=2)
 ```
 
-## *Fit models*
+## Fit models
 
 ### Naive model (individual fits)
 
@@ -298,9 +316,9 @@ for(id in unique(Baseline_data$ID)){
     writeLines(sprintf('Cannot do %s', id))
   } else {
     if(!any(xx$censor=='left')){
-        mod = lm(log10_viral_load ~ Time, data = xx)
+      mod = lm(log10_viral_load ~ Time, data = xx)
     } else {
-        mod = censReg::censReg(log10_viral_load ~ Time, left = max(xx$log10_cens_vl), data = xx)
+      mod = censReg::censReg(log10_viral_load ~ Time, left = max(xx$log10_cens_vl), data = xx)
     }
   }
   Baseline_data$naive_linear[ind]=coef(mod)['Time']
@@ -370,10 +388,10 @@ covs_slope = c('Variant', 'Site', 'Study_time')
 covs_intercept = c('Variant', 'Site','Symptom_onset')
 
 covs_full_slope=c(covs_slope, 'Age_scaled','BMI',
-            'Time_since_last_dose')
+                  'Time_since_last_dose')
 
 covs_full_int=c(covs_intercept, 'Age_scaled','BMI',
-            'Time_since_last_dose')
+                'Time_since_last_dose')
 
 stan_inputs = 
   make_stan_inputs(input_data_fit = platcov_dat_analysis,
@@ -391,11 +409,11 @@ all_mods = list.files('Stan_models',full.names = TRUE,pattern = '*stan')
 
 model_settings = #rbind(
   expand.grid(mod = "Stan_models/Linear_model_RNaseP.stan",
-                             prior = 1,
-                             cov_matrices = 1)#,
-                       # expand.grid(mod = all_mods[1],
-                       #       prior = 1,
-                       #       cov_matrices = 2))
+              prior = 1,
+              cov_matrices = 1)#,
+# expand.grid(mod = all_mods[1],
+#       prior = 1,
+#       cov_matrices = 2))
 
 
 model_settings$Niter = 2000
@@ -431,7 +449,7 @@ if(!length(ff)==nrow(model_settings)) stop('not all outputs are ready for all mo
 ff = paste0('Rout/',ff)
 ```
 
-*main model selection*
+main model selection
 
 ```{r}
 main_mod = which(model_settings$prior==1&
@@ -478,11 +496,11 @@ We define two outcomes under the model:
 load(ff[1])
 par(las=1, cex.lab=1.5, cex.axis=1.5)
 slope_out=make_slopes_plot(stan_out = out, 
-                    analysis_data_stan = stan_inputs$analysis_data_stan,
-                    ID_map = stan_inputs$ID_map,
-                    data_summary = Baseline_data,
-                    my_lims = c(2,50),
-                    my_vals = c(5,15,25,35,45))
+                           analysis_data_stan = stan_inputs$analysis_data_stan,
+                           ID_map = stan_inputs$ID_map,
+                           data_summary = Baseline_data,
+                           my_lims = c(2,50),
+                           my_vals = c(5,15,25,35,45))
 
 mod1=mgcv::gam(t_12_med ~ Trt + s(Study_time,k=10), 
                family = 'scat',
@@ -548,8 +566,8 @@ very fast clearing patients in no study drug arm
 ```{r}
 ids = unlist(slope_out%>%filter(Trt %in% c('No study drug', 'Ivermectin', 'Favipiravir', Baseline.viral.load>4), slope_median< -1.5)%>% distinct(ID))
 par(las=1, mfrow=c(2,2))
- plot_individ_curves(platcov_dat = platcov_dat, IDs = ids,xlims = c(0,14))
- 
+plot_individ_curves(platcov_dat = platcov_dat, IDs = ids,xlims = c(0,14))
+
 ```
 
 ```{r IgG_slope_association}
@@ -698,7 +716,7 @@ survdiff(Surv(Symptom_resolution, symp_censored) ~ Trt, data = platcov_symp)
 ggsurvplot(fit = fit, data = platcov_symp,
            xlab = 'Time (days)', ylab = 'Proportion with symptoms',
            ggtheme = theme_light(),
-          cex.lab=1.5,cex.axis=1.5)
+           cex.lab=1.5,cex.axis=1.5)
 
 # 
 # symp_rebound = symp_dat %>% group_by(ID) %>%
