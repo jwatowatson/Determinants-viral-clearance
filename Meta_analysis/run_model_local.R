@@ -12,7 +12,9 @@ library(dplyr)
 source('../functions.R')
 source('../priors.R')
 
-load('../Rout/model_settings_all_analysis.RData')
+load('../Rout/model_settings_Unblinded.RData')
+
+for(job_i in 1:4){
 
 Max_job = nrow(model_settings)
 if(job_i > Max_job) stop('no model setting corresponding to job ID')
@@ -20,9 +22,8 @@ if(job_i > Max_job) stop('no model setting corresponding to job ID')
 writeLines('Doing the following job:')
 print(model_settings[job_i, ])
 
+platcov_dat <- data_list[[model_settings$Data_ID[job_i]]]
 Dmax <- model_settings$Dmax[job_i]
-
-#platcov_dat <- platcov_dat[platcov_dat$Trt %in% c("No study drug", "Ivermectin"),]
 
 # Analysis data
 platcov_dat_analysis = 
@@ -37,11 +38,8 @@ platcov_dat_analysis =
          Age_scaled = (Age-Mean_age)/SD_age,
          Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
 
-if(grepl("spline", model_settings[job_i,]$mod)){covs_base = c('Site')}else{covs_base = c('Site', 'Study_time')}
-
-#covs_base = c('Site') #'Study_time'
+covs_base = c('Study_time','Site')
 covs_full=c(covs_base, 'Age_scaled','Symptom_onset','N_dose')
-
 stan_input_job = 
   make_stan_inputs(input_data_fit = platcov_dat_analysis,
                    int_covs_base = covs_base,
@@ -50,6 +48,7 @@ stan_input_job =
                    slope_covs_full = covs_full,
                    trt_frmla = formula('~ Trt'),
                    Dmax = Dmax)
+
 
 
 options(mc.cores = model_settings$Nchain[job_i])
@@ -68,29 +67,12 @@ if(ncol(x_intercept)==0) x_intercept = array(0, dim=c(nrow(x_intercept),1))
 analysis_data_stan$x_intercept = x_intercept
 analysis_data_stan$K_cov_intercept= ncol(x_intercept)
 
+
 x_slope = stan_input_job$cov_matrices$X_slope[[model_settings$cov_matrices[job_i]]]
 if(ncol(x_slope)==0) x_slope = array(0, dim=c(nrow(x_slope),1))
 analysis_data_stan$x_slope = x_slope
 analysis_data_stan$K_cov_slope=ncol(x_slope)
 
-num_knots_alpha <- model_settings$num_knots_alpha[job_i]
-num_knots_beta <- model_settings$num_knots_beta[job_i]
-
-study_time <- as.vector(unique(platcov_dat_analysis[,c("ID", "Study_time")])[,2])
-study_time <- study_time[[1]][,1]
-
-knots_alpha <- unname(quantile(study_time, probs=seq(from=0, to=1, length.out = num_knots_alpha)))
-knots_beta <- unname(quantile(study_time, probs=seq(from=0, to=1, length.out = num_knots_beta)))
-
-analysis_data_stan$num_knots_alpha <- num_knots_alpha
-analysis_data_stan$knots_alpha <- knots_alpha
-analysis_data_stan$spline_degree_alpha <- model_settings$spline_degree_alpha[job_i]
-
-analysis_data_stan$num_knots_beta <- num_knots_beta
-analysis_data_stan$knots_beta <- knots_beta
-analysis_data_stan$spline_degree_beta <- model_settings$spline_degree_beta[job_i]
-
-analysis_data_stan$study_time <- study_time
 
 # sample posterior
 out = sampling(mod, 
@@ -102,11 +84,12 @@ out = sampling(mod,
                warmup=model_settings$Nwarmup[job_i],
                save_warmup = FALSE,
                seed=job_i,
-               pars=c("a_alpha"), # we don't save this as it takes up lots of memory!
+               pars=c('L_Omega'), # we don't save this as it takes up lots of memory!
                include=FALSE)
 
 
-save(out, file = paste0('Rout/model_fits_fixed_trt',job_i,'.RData'))# save output
+save(out, file = paste0('Rout/model_fits_',job_i,'.RData'))# save output
 
 writeLines('Finished job')
 
+}

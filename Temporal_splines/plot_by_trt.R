@@ -1,3 +1,7 @@
+library(ggpubr)
+library(grid) 
+
+
 data_for_plot_slope$Trt <- factor(
   data_for_plot_slope$Trt,
   levels = c(
@@ -55,8 +59,7 @@ for(i in 1:length(Trts)){
   
 }
 
-library(ggpubr)
-library(grid) 
+
 GG <- ggarrange(plotlist = plot_list, ncol = 3, nrow = 2)
 
 

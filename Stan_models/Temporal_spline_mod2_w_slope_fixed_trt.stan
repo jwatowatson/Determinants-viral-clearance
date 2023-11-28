@@ -194,7 +194,7 @@ transformed parameters {
       pred_log10_vl[i] =
       alpha_hat[id[i]] + theta_rand_id[id[i]][1] + alpha_cov[i] +
       gamma_rnasep*RNaseP[i] +
-      beta_hat[id[i]]*exp(trt_slope[i]+theta_rand_id[id[i]][2]+beta_cov[i])*obs_day[i];
+      (beta_hat[id[i]]*exp(theta_rand_id[id[i]][2]+beta_cov[i]) + trt_slope[i])*obs_day[i];
     }
   }
 }
@@ -258,6 +258,6 @@ generated quantities {
   }
   for(i in 1:n_id){
     int j = ind_start[i];
-    slope[i] = beta_hat[i]*exp(trt_slope[j]+theta_rand_id[i][2]+beta_cov[j]);
+    slope[i] = (beta_hat[i]*exp(beta_cov[i]+theta_rand_id[id[i]][2])+trt_slope[i]);
   }
 }
