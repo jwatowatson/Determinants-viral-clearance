@@ -460,3 +460,59 @@ png("Plots/Figx_onset_dynamics_all.png", width = 10, height = 8, units = "in", r
 print(Gr_mgcv)
 dev.off()
 ```
+
+```{r}
+plot_dat <- platcov_dat %>%
+  filter(mITT, Timepoint_ID != 8)
+
+plot_dat$Epoch_2 <- "Jul 2022 to Dec 22"
+plot_dat$Epoch_2[plot_dat$Rand_date >= as.Date("2023-01-01")] <- "After Jan 2023"
+plot_dat$Epoch_2[plot_dat$Rand_date < as.Date("2022-07-01")] <- "Before Jul 2022"
+
+plot_dat$Epoch_2 <- as.factor(plot_dat$Epoch_2)
+plot_dat$Epoch_2 <- factor(plot_dat$Epoch_2, levels = c("Before Jul 2022", "Jul 2022 to Dec 22", "After Jan 2023"))
+
+plot_dat <- plot_dat %>%
+  group_by(ID, Timepoint_ID) %>%
+  mutate(daily_VL = mean(log10_viral_load))
+
+plot_dat_daily <- unique(plot_dat[,c("ID", "Trt", "Timepoint_ID", "Epoch_2", "daily_VL")])
+
+plot_dat_daily <- plot_dat_daily %>% filter(Trt == "No study drug")
+
+med_data <- plot_dat_daily %>%
+  group_by(Epoch_2, Timepoint_ID) %>%
+  summarise(daily_VL = median(daily_VL))
+
+Gr_dynamics <- ggplot() +
+  geom_jitter(data = plot_dat_daily, aes(x = Timepoint_ID, y = daily_VL,
+                                         col = Epoch_2), alpha = 0.3, width = 0.15,
+              shape = 21, size = 2) +
+  geom_line(data = med_data %>% filter(Timepoint_ID <=7), aes(x = Timepoint_ID, y = daily_VL,
+                                         col = Epoch_2), linewidth = 1) +
+  
+  geom_line(data = med_data %>% filter(Timepoint_ID >=7), aes(x = Timepoint_ID, y = daily_VL,
+                                         col = Epoch_2), linewidth = 0.75, linetype = "dashed") +
+  
+  geom_point(data = med_data, aes(x = Timepoint_ID, y = daily_VL,
+                                         fill = Epoch_2), size = 3.5, shape = 24) +
+  theme_bw() +
+  scale_fill_manual(values = c("#005AB5",  "#F99417", "#DC3220"), name = "") +
+  scale_colour_manual(values = c("#005AB5",  "#F99417", "#DC3220"), name = "") +
+  scale_x_continuous(breaks = 0:14) +
+  scale_y_continuous(labels=label_math(), breaks = seq(0,8,2)) +
+  xlab("Time since randomisation (days)") +
+  ylab("SARS-CoV-2 genomes/mL") + 
+  theme(axis.title  = element_text(face = "bold"),
+        plot.title = element_text(face = "bold"),
+        legend.position = "bottom",
+        axis.text = element_text(size = 10)) +
+  ggtitle("No-study-drug arm")
+Gr_dynamics
+```
+
+```{r}
+png("Plots/Figx_dynamics_before_after.png", width = 6, height = 5, units = "in", res = 350)
+Gr_dynamics
+dev.off()
+```
