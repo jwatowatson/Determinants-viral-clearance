@@ -461,6 +461,8 @@ print(Gr_mgcv)
 dev.off()
 ```
 
+# Plot dynamics before vs after
+
 ```{r}
 plot_dat <- platcov_dat %>%
   filter(mITT, Timepoint_ID != 8)
