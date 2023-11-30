@@ -1,4 +1,4 @@
-load("../Rout/model_settings_all_analysis.RData")
+load("../Rout/Rout_archive/model_settings_all_analysis.RData")
 ################################################################################
 library(rstan)
 library(dplyr)

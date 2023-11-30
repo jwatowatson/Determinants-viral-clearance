@@ -1,5 +1,5 @@
 ---
-title: "Temporal splines PLATCOV"
+title: "Bootstrapping PLATCOV"
 author: "James Watson and Phrutsamon Wongnak"
 format: pdf
 editor: visual
@@ -19,11 +19,6 @@ library(tidyverse)
 library(kableExtra)
 library(finalfit)
 library(RColorBrewer)
-library(mgcv)
-library(tidymv)
-library(splines)
-library(scales)
-
 
 ## information on software/hardware used
 version
@@ -31,17 +26,94 @@ sessionInfo()
 
 rstan_options(auto_write = TRUE)
 ## parameters for the analysis
-Dmax = c(5.5, 8)
 study_threshold = 1.2
-RUN_MODELS = F
+RUN_MODELS = T
 
 my_probs = c(0.025, 0.1, .5, .9, .975)
 source('functions.R')
+source("priors.R")
 ```
 
 ## Load data
 
 Set up analysis
+
+```{r}
+mITT <- function(platcov_dat){
+  platcov_dat = platcov_dat %>% group_by(ID) %>%
+    mutate(
+      mITT = any(Per_protocol_sample==1 & Timepoint_ID>=3) & !all(CT_NS==40))
+  return(as.data.frame(platcov_dat))
+}
+```
+
+```{r}
+remdesivir_data = read.csv('Analysis_Data/Remdesivir_analysis.csv')
+paxlovid_data = read.csv( 'Analysis_Data/Paxlovid_Molnupiravir_analysis.csv')
+recent_paxlovid_data = read.csv('Analysis_Data/Paxlovid_recent_analysis.csv')
+regeneron_data = read.csv('Analysis_Data/REGN_analysis.csv')
+
+remdesivir_data <- mITT(remdesivir_data)
+paxlovid_data <- mITT(paxlovid_data)
+recent_paxlovid_data <- mITT(recent_paxlovid_data)
+regeneron_data <- mITT(regeneron_data)
+
+data_list <- list(remdesivir_data, paxlovid_data, recent_paxlovid_data, regeneron_data)
+```
+
+```{r}
+interventions_all = c("Remdesivir", "Molnupiravir", "Regeneron", "Nirmatrelvir + Ritonavir", "Nirmatrelvir + Ritonavir", "Nirmatrelvir + Ritonavir")
+
+
+ref_arms_all =  c("No study drug", "No study drug", "No study drug", "Molnupiravir", "No study drug", "No study drug")
+
+data_ID <- c(1,2, 4, 2, 2, 3)
+
+pairs <- paste(interventions_all,ref_arms_all, data_ID, sep = "_")
+```
+
+```{r}
+Dmax_all <- c(2:7, 14)
+bootstrap_rep = 50
+
+pair_ID <- 1:6  
+
+model_settings <-  expand.grid(mod = 'Stan_models/Linear_model_RNaseP.stan',
+                               prior = 1,
+                               cov_matrices = 1,
+                               Dmax = Dmax_all,
+                               pairs = pairs[pair_ID],
+                               boot_rep = 1:bootstrap_rep)
+
+model_settings <- model_settings %>%
+  separate(pairs, c("intervention", "ref_arm", "data_ID"), "_")
+
+model_settings$Niter = 4000
+model_settings$Nwarmup = 2000
+model_settings$Nthin = 8
+model_settings$Nchain = 4
+
+writeLines(sprintf('Numbers of posterior samples in total is %s',
+                   unique((model_settings$Niter-model_settings$Nwarmup)*model_settings$Nchain/model_settings$Nthin)))
+
+model_settings$data_ID <- as.numeric(model_settings$data_ID)
+```
+
+```{r}
+model_setup_f_name = "Rout/model_settings_bootstraps.RData"
+
+save(model_settings, 
+     data_list,
+     all_priors,
+     file = model_setup_f_name)
+```
+
+```{r}
+
+if(RUN_MODELS){
+  system(paste('Rscript --vanilla 02_run_local_bootstraps_analysis.R'))
+}
+```
 
 ```{r}
 intervention = 'Unblinded_meta' # prefix of analysis file
@@ -84,21 +156,12 @@ pop_table = platcov_dat %>% distinct(ID, .keep_all = T)
 table(Intervention=pop_table$Trt, `mITT population` = pop_table$mITT)
 ```
 
-```{r}
-platcov_dat$VariantClass_new <- as.character(platcov_dat$Variant)
-platcov_dat$VariantClass_new[platcov_dat$VariantClass_new %in% c("BA.5.2", "BA.5.5", "BQ.1")] <- "BA.5"
-platcov_dat$VariantClass_new[platcov_dat$VariantClass_new %in% c("BN.1.2", "BN.1.3", "CH.1.1")] <- "BA.2.75"
-platcov_dat$VariantClass_new[platcov_dat$VariantClass_new %in% c("XBB1.5-like with F456L")] <- "XBB.1.5-like"
-platcov_dat$VariantClass_new <- as.factor(platcov_dat$VariantClass_new)
-```
-
 ## Baseline characteristics
 
 ```{r}
 #| echo: false
 platcov_dat = platcov_dat %>% ungroup() %>%
   mutate(Study_time = as.numeric(difftime(Rand_date,min(Rand_date),units = 'weeks')),
-        Study_time_normal = Study_time,
          Study_time = scale(Study_time) ) %>%
   group_by(ID, Timepoint_ID) %>%
   mutate(daily_VL = mean(log10_viral_load),
@@ -121,7 +184,7 @@ tab.ff <- Baseline_data %>% filter(mITT) %>%
   summary_factorlist(
     dependent = "Trt", # name of grouping / treatment variable
     explanatory = c("Site", "Age", 'Sex','BMI', "Weight", "Baseline.viral.load", 
-                    "VariantClass_new",'Symptom_onset','Vaccinated','Fever_Baseline'),
+                    "Variant",'Symptom_onset','Vaccinated','Fever_Baseline'),
     total_col = T, # add column with statistics for the whole sample
     add_row_total = F, # add column with number of valid cases
     include_row_missing_col = FALSE,
@@ -242,65 +305,82 @@ model_cols = brewer.pal(n = nrow(model_settings), name = 'Set1')
 names(model_cols) = paste('model', 1:nrow(model_settings))
 ```
 
-# 
+# Plot treatment effect
 
-# Baseline viral load dynamics
-
-```{r}
-back_transfrom_date <- function(platcov_dat, scaled_time){
-  mean_time <- mean(platcov_dat$Study_time_normal)
-  sd_time <- sd(platcov_dat$Study_time_normal)
-  min_date <- as.numeric(min(as.Date(platcov_dat$Rand_date)))
-  backward_time <- (scaled_time * sd_time) + mean_time
-  date <- as.POSIXct.Date(backward_time * 7 + min_date)
-  return(date)
+```{r get_effects}
+effect_ests=list()
+for(i in 1:length(ff)){
+  load(ff[i])
+  effect_ests[[i]] = 
+    summary(out, pars='trt_effect',use_cache=F,probs=my_probs)$summary[,c('2.5%','10%','50%','90%','97.5%'),drop=F]
+  rownames(effect_ests[[i]])=trts
 }
 ```
 
-### GAM mod 1: Baseline viral loads vs Time
+```{r Figure_main, fig.height=7, fig.width=10}
+par(las=1, mar=c(5,5,2,2),cex.lab=1.3, cex.axis=1.3, mfrow=c(1,2))
+plot_serial_data(xx = platcov_dat_analysis)
+plot_effect_estimates(effect_ests = effect_ests,
+                      plot_models = 1:length(ff),
+                      study_threshold = study_threshold,
+                      mod_cols = model_cols[1:length(ff)],
+                      my_pch = 15)
+# title(intervention)
+legend('right',pch=15:16,legend = c('Linear','Non-linear'),
+       col = model_cols,inset=0.03, cex=1.5)
 
-```{r}
-Baseline_vl_data_Plot <- Baseline_data[Baseline_data$mITT,]
-vars <- levels(Baseline_vl_data_Plot$VariantClass_new)
+load(ff[main_mod])
+round(100*(exp(quantile(rstan::extract(out, pars = 'trt_effect')$trt_effect, probs = my_probs))-1))
 
-Baseline_vl_data_Plot$VariantClass_new <- factor(Baseline_vl_data_Plot$VariantClass_new, levels = vars[c(6, 1:5,8,9,7)])
+writeLines(sprintf('Probability that the effect is less than %s%% is %s',study_threshold,
+                   mean(rstan::extract(out, pars = 'trt_effect')$trt_effect<log(study_threshold))))
 
-mod1 <- gam(Baseline.viral.load ~ s(Study_time), 
-                      data = Baseline_vl_data_Plot) 
-pred_mod1 <- predict_gam(mod1)
-pred_mod1$Rand_date <-  back_transfrom_date(platcov_dat, pred_mod1$Study_time)
+load(ff[2])
+round(100*(exp(quantile(rstan::extract(out, pars = 'trt_effect')$trt_effect, probs = my_probs))-1))
 
-mycolors <-  c("#E41A1C", "#377EB8", "#4DAF4A", "black", "#984EA3", "#FF8400", "#2B3499", "#E95793", "#999999")
+writeLines(sprintf('Probability that the effect is less than %s%% is %s',study_threshold,
+                   mean(rstan::extract(out, pars = 'trt_effect')$trt_effect<log(study_threshold))))
+```
 
-
-Gr_mod1 <- pred_mod1 %>%
-  ggplot(aes(Rand_date, fit)) +
-  geom_point(data = Baseline_vl_data_Plot, aes(x = Rand_date, y = Baseline.viral.load, col = VariantClass_new, alpha = VariantClass_new, shape = VariantClass_new),
-             size = 2.5) +
-  geom_smooth_ci(linewidth = 1.5, col = "black", ci_alpha = 0.25) +
-  theme_bw() +
-  xlab("Randomisation date") +
-  ylab("Time since symptomp onset (days)") +
-  theme(strip.text = element_text(size = 10, face = "bold"),
-        axis.title = element_text(size = 12, face = "bold"),
-        plot.title = element_text(size = 14, face = "bold"),
-        panel.spacing = unit(1, "lines"),
-        legend.position = "bottom") +
-    scale_color_manual(values = mycolors, name = "Variants") +
-    scale_y_continuous(labels=label_math(), breaks = seq(0,9,1)) +
-  xlab("Randomisation date") +
-  ylab("Baseline SARS-CoV-2 genomes/mL") +
-  scale_alpha_manual(values = rep(0.6, length(vars)), guide = "none") +
-  scale_shape_manual(values = rep(19, length(vars)), name = "Variants") +
-   guides(col=guide_legend(nrow=2),
-         shape = guide_legend(override.aes = list(size = 4)))
-
-print(Gr_mod1)
+```{r slopes_plot}
+load(ff[main_mod])
+par(las=1, cex.lab=1.5, cex.axis=1.5)
+trt_cols = rev(unique(platcov_dat_analysis$trt_color))
+names(trt_cols) = unique(platcov_dat_analysis$Trt)
+par(mar=c(5,5,2,2))
+xx=make_slopes_plot(stan_out = out, 
+                    analysis_data_stan = stan_inputs$analysis_data_stan,
+                    ID_map = stan_inputs$ID_map,
+                    data_summary = Baseline_data,
+                    my_lims = c(0,50),
+                    my_vals = c(5,15,25,35,45))
 
 ```
 
-```{r}
-png("Plots/Figx_baseline_viral_loads.png", width = 8, height = 6, units = "in", res = 400)
-Gr_mod1
-dev.off()
+```{r coef_plot}
+coef_to_plot=1
+coef_model = which(model_settings$prior==1&
+                     model_settings$cov_matrices==coef_to_plot&
+                     model_settings$mod==all_mods[2])
+load(ff[coef_model])
+par(las=1, mfrow=c(1,2), mar=c(5,7,2,2))
+plot_coef_effects(stan_out = out,cov_mat = coef_to_plot,stan_inputs = stan_inputs)
+```
+
+## Individual patient data
+
+```{r individ_data}
+model_list = list()
+for(i in 1:length(ff)){
+  load(ff[i])
+  model_list[[i]] = out
+}
+
+ID_map = merge(stan_inputs$ID_map, Baseline_data, by.x = 'ID_key',by.y = 'ID')
+par(mfrow=c(4,4), mar=c(2,2,2,2),las=1)
+plot_data_model_fits(model_list = model_list, 
+                     models_to_plot = 1:2,
+                     K_plots = 16,mod_cols = model_cols,
+                     ID_map = ID_map,
+                     analysis_data_stan = stan_inputs$analysis_data_stan)
 ```
