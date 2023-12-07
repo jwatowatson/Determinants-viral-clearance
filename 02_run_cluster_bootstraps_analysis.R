@@ -14,7 +14,7 @@ library(tidyverse)
 source('functions.R')
 
 ############################################################################
-covs_base = c('Study_time', 'Variant')
+covs_base = c('Site', 'Study_time', 'Variant', 'Age_scaled','Symptom_onset','N_dose')
 
 ############################################################################
 load('Rout/model_settings_bootstraps.RData') # change here for ineffective drugs
@@ -50,7 +50,9 @@ if(job_i > Max_job) stop('no model setting corresponding to job ID')
            Mean_age = mean(Age[!duplicated(ID)]),
            SD_age = sd(Age[!duplicated(ID)]),
            Age_scaled = (Age-Mean_age)/SD_age,
-           Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
+           Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) %>%
+    mutate(Study_time = as.numeric(difftime(Rand_date,min(Rand_date),units = 'weeks')),
+           Study_time = scale(Study_time) ) 
   
   
   ## Bootstrap data (by bootstrapping patients)
@@ -104,7 +106,7 @@ if(job_i > Max_job) stop('no model setting corresponding to job ID')
                  pars=c('trt_effect'), # only save trt effect parameter 
                  include=T)
   
-  save(out, file = paste0('Rout/02 Rout bootstraps_analysis/model_fits_bootstraps_',job_i,'.RData'))# save output # change here for ineffective drugs
+  save(out, file = paste0('Rout/02_Rout_bootstraps_analysis/model_fits_bootstraps_',job_i,'.RData'))# save output # change here for ineffective drugs
   
   writeLines('Finished job')
 

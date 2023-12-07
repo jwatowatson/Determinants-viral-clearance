@@ -27,7 +27,7 @@ sessionInfo()
 rstan_options(auto_write = TRUE)
 ## parameters for the analysis
 study_threshold = 1.2
-RUN_MODELS = T
+RUN_MODELS = F
 
 my_probs = c(0.025, 0.1, .5, .9, .975)
 source('functions.R')

@@ -24,7 +24,9 @@ library(tidymv)
 library(splines)
 library(scales)
 library(ggnewscale)
-
+library(dplyr)
+library(ggpubr)
+library(grid)
 
 ## information on software/hardware used
 version
@@ -190,12 +192,16 @@ all_mods = c("Stan_models/Temporal_spline_mod2_w_slope.stan",
 model_settings = expand.grid(mod = all_mods,
                              prior = 1:2,
                              cov_matrices = 1:2, 
-                             dataset = 1:2,
+                            # dataset = 1:2,
                              Dmax = Dmax,
                              num_knots_alpha = 10,
                              spline_degree_alpha = 4,
                              num_knots_beta = 10,
                              spline_degree_beta = 4)
+
+model_settings$dataset <- 1
+model_settings$dataset[model_settings$Dmax == Dmax[2]] <- 2
+
 
 model_settings$Niter = 4000
 model_settings$Nwarmup = 2000
@@ -242,8 +248,6 @@ main_mod = which(model_settings$prior==1&
 model_cols = brewer.pal(n = nrow(model_settings), name = 'Set1')
 names(model_cols) = paste('model', 1:nrow(model_settings))
 ```
-
-# 
 
 # Baseline viral load dynamics
 
@@ -467,12 +471,13 @@ dev.off()
 plot_dat <- platcov_dat %>%
   filter(mITT, Timepoint_ID != 8)
 
-plot_dat$Epoch_2 <- "Jul 2022 to Dec 22"
+plot_dat$Epoch_2 <- "Before Jan 2023" #"Jul 2022 to Dec 2022"
 plot_dat$Epoch_2[plot_dat$Rand_date >= as.Date("2023-01-01")] <- "After Jan 2023"
-plot_dat$Epoch_2[plot_dat$Rand_date < as.Date("2022-07-01")] <- "Before Jul 2022"
+#plot_dat$Epoch_2[plot_dat$Rand_date < as.Date("2022-07-01")] <- "Before Jul 2022"
 
 plot_dat$Epoch_2 <- as.factor(plot_dat$Epoch_2)
-plot_dat$Epoch_2 <- factor(plot_dat$Epoch_2, levels = c("Before Jul 2022", "Jul 2022 to Dec 22", "After Jan 2023"))
+plot_dat$Epoch_2 <- factor(plot_dat$Epoch_2, levels = c("Before Jan 2023", "After Jan 2023"))
+                             #c("Before Jul 2022", "Jul 2022 to Dec 2022", "After Jan 2023"))
 
 plot_dat <- plot_dat %>%
   group_by(ID, Timepoint_ID) %>%
@@ -480,10 +485,12 @@ plot_dat <- plot_dat %>%
 
 plot_dat_daily <- unique(plot_dat[,c("ID", "Trt", "Timepoint_ID", "Epoch_2", "daily_VL")])
 
-plot_dat_daily <- plot_dat_daily %>% filter(Trt == "No study drug")
+plot_dat_daily <- plot_dat_daily %>% filter(Trt %in% c("No study drug", "Nirmatrelvir + Ritonavir"))
+
+levels(plot_dat_daily$Trt)[levels(plot_dat_daily$Trt) == "Nirmatrelvir + Ritonavir"] <- "Nirmatrelvir"
 
 med_data <- plot_dat_daily %>%
-  group_by(Epoch_2, Timepoint_ID) %>%
+  group_by(Epoch_2, Timepoint_ID, Trt) %>%
   summarise(daily_VL = median(daily_VL))
 
 Gr_dynamics <- ggplot() +
@@ -499,8 +506,8 @@ Gr_dynamics <- ggplot() +
   geom_point(data = med_data, aes(x = Timepoint_ID, y = daily_VL,
                                          fill = Epoch_2), size = 3.5, shape = 24) +
   theme_bw() +
-  scale_fill_manual(values = c("#005AB5",  "#F99417", "#DC3220"), name = "") +
-  scale_colour_manual(values = c("#005AB5",  "#F99417", "#DC3220"), name = "") +
+  scale_fill_manual(values = c("#005AB5",  "#DC3220"), name = "") + # "#F99417",
+  scale_colour_manual(values = c("#005AB5",  "#DC3220"), name = "") + # "#F99417",
   scale_x_continuous(breaks = 0:14) +
   scale_y_continuous(labels=label_math(), breaks = seq(0,8,2)) +
   xlab("Time since randomisation (days)") +
@@ -508,13 +515,301 @@ Gr_dynamics <- ggplot() +
   theme(axis.title  = element_text(face = "bold"),
         plot.title = element_text(face = "bold"),
         legend.position = "bottom",
-        axis.text = element_text(size = 10)) +
-  ggtitle("No-study-drug arm")
-Gr_dynamics
+        axis.text = element_text(size = 10),
+        strip.text = element_text(size = 10, face = "bold")) +
+ # ggtitle("No-study-drug arm") +
+  facet_grid(.~ Trt)
+Gr_dynamics 
 ```
 
 ```{r}
-png("Plots/Figx_dynamics_before_after.png", width = 6, height = 5, units = "in", res = 350)
+png("Plots/Figx_dynamics_before_after.png", width = 10, height = 5, units = "in", res = 350)
 Gr_dynamics
+dev.off()
+```
+
+# Splines fit for clearance rate
+
+### Choosing results
+
+```{r}
+resDir <- "Rout/01_Rout_temporal_splines_analysis"
+list_files <- list.files(resDir)
+
+dmax <- 8 #5.5 8
+mod <- "Stan_models/Temporal_spline_mod2_w_slope.stan" # "Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan" #" #
+cov <- 2 #2
+prior <- 1 #2
+
+ind_res <- which(model_settings$Dmax == dmax & model_settings$mod == mod &
+                   model_settings$cov_matrices == cov & model_settings$prior == prior)
+
+load(paste0(resDir, "/", list_files[grep(paste0("fits_", ind_res, ".RData"), list_files)])) 
+```
+
+### Plotting trend of clearance rate
+
+```{r}
+n_id <- stan_inputs[[model_settings$dataset[ind_res]
+]]$analysis_data_stan$n_id
+ind_start <- stan_inputs[[model_settings$dataset[ind_res]
+]]$analysis_data_stan$ind_start
+
+
+post_beta_hat <- rstan::extract(out, "beta_hat")[[1]]
+post_trt_slope <- rstan::extract(out, "trt_slope")[[1]]
+post_trt_theta_rand_id <- rstan::extract(out, "theta_rand_id")[[1]]
+post_trt_beta_cov <- rstan::extract(out, "beta_cov")[[1]]
+
+slope_ALL <- matrix(NA, ncol = n_id, nrow = 2000)
+slope_trt <- matrix(NA, ncol = n_id, nrow = 2000)
+  
+
+if(mod == "Stan_models/Temporal_spline_mod2_w_slope.stan") {
+  for (j in 1:n_id) {
+    slope_ALL[, j]  <-
+      post_beta_hat[, j] * exp(post_trt_slope[, ind_start[j]] +  post_trt_theta_rand_id[, j, 2] +  post_trt_beta_cov[, ind_start[j]])
+    slope_trt[, j] <-
+      post_beta_hat[, j] * exp(post_trt_slope[, ind_start[j]])
+  }
+  
+} else {
+  for (j in 1:n_id) {
+    slope_ALL[, j]  <-
+      post_beta_hat[, j] * exp(post_trt_slope[, ind_start[j]] +  post_trt_theta_rand_id[, j, 2]) +  post_trt_beta_cov[, ind_start[j]]
+    slope_trt[, j] <-
+      post_beta_hat[, j] + post_trt_slope[, ind_start[j]]
+  }
+}  
+ 
+slope_summarize <- apply(slope_ALL, 2, quantile, c(0.025, 0.5, 0.975))
+slope_trt_summarize <- apply(slope_trt, 2, quantile, c(0.025, 0.5, 0.975))
+post_beta_hat_summarize <- apply(post_beta_hat, 2, quantile, c(0.025, 0.5, 0.975))
+
+data_for_plot_slope <- platcov_dat_analysis_list[[model_settings$dataset[ind_res]]][ind_start,]
+data_for_plot_slope$slope_low <- slope_summarize[1,]
+data_for_plot_slope$slope_med <- slope_summarize[2,]
+data_for_plot_slope$slope_up <- slope_summarize[3,]
+  
+data_for_plot_slope$slope_trt_low <- slope_trt_summarize[1,]
+data_for_plot_slope$slope_trt_med <- slope_trt_summarize[2,]
+data_for_plot_slope$slope_trt_up <- slope_trt_summarize[3,]
+  
+data_for_plot_slope$beta_hat <- post_beta_hat_summarize[2,]
+  
+data_for_plot_slope <- data_for_plot_slope[data_for_plot_slope$beta_hat != max(data_for_plot_slope$beta_hat),] 
+
+```
+
+```{r}
+if(model_settings$Dmax[ind_res] == 5.5){
+  lab <- expression(bold(paste("Viral clearance rates, ",alpha["0-5"]," (log"["10"]," genomes mL"^-1, " day"^-1,")")));
+  max <- "5d"
+} else {
+  lab <- expression(bold(paste("Viral clearance rates, ",alpha["0-7"]," (log"["10"]," genomes mL"^-1, " day"^-1,")")));
+  max <- "7d"
+}
+
+
+Sp_all <- ggplot(data_for_plot_slope, aes(x = Rand_date, y = slope_med)) +
+  geom_point(size = 3, alpha = 0.5, col = "grey"
+             ) +
+  theme_bw() +
+  geom_errorbar(aes(ymin = slope_low, ymax = slope_up), width = 0,
+                alpha = 0.5, col = "grey") +
+  geom_line(aes(x = Rand_date, y = beta_hat), 
+            linewidth = 1.75, alpha = 0.7, col = "red") +
+  xlab("Randomisation date") +
+  ylab(lab) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme(strip.text = element_text(size = 10, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold"),
+        panel.spacing = unit(1, "lines")) +
+  ylim(-3,0)
+
+Sp_all
+```
+
+```{r}
+png(paste0("Plots/slope_by_time_", max, ".png"), width = 8, height = 6, units = "in", res = 400)
+Sp_all
+dev.off()
+```
+
+### Plotting trend of clearance rate by treatment
+
+```{r}
+data_for_plot_slope$Trt <- factor(
+  data_for_plot_slope$Trt,
+  levels = c(
+    "Ivermectin",
+    "Favipiravir",
+    "Regeneron",
+    "Remdesivir",
+    "Molnupiravir",
+    "Nirmatrelvir + Ritonavir",
+    "No study drug"
+  )
+)
+
+Trts <- unique(data_for_plot_slope$Trt)
+Trts <- Trts[-which(Trts %in% c("No study drug"))]
+Trts <- sort(Trts)
+col <- c("#C70039", "#A03C78", "#FA7070", "#FF9130", "#1C6DD0", "#219C90")
+```
+
+```{r}
+if(model_settings$Dmax[ind_res] == 5.5){
+  labs <- expression(bold(paste("Viral clearance rates, ",alpha["0-5"]," (log"["10"]," genomes mL"^-1, " day"^-1,")")));
+  max <- "5d"
+} else {
+  labs <- expression(bold(paste("Viral clearance rates, ",alpha["0-7"]," (log"["10"]," genomes mL"^-1, " day"^-1,")")));
+  max <- "7d"
+}
+
+
+plot_list <- list()
+
+for(i in 1:length(Trts)){
+  trt <- Trts[i]
+  lab <- as.character(trt)
+  if(lab == "Nirmatrelvir + Ritonavir"){lab <- "Nirmatrelvir"}
+  if(lab == "Regeneron"){lab <- "Casirivimab/imdevimab"}
+  
+  
+  G <- ggplot() +
+    theme_bw() +
+    geom_point(data = data_for_plot_slope[data_for_plot_slope$Trt == "No study drug", ], aes(x = Rand_date, y = slope_med),
+               size = 2.5, alpha = 0.5, col = "grey") +
+    geom_errorbar(data = data_for_plot_slope[data_for_plot_slope$Trt == "No study drug", ], aes(x = Rand_date, ymin = slope_low, ymax = slope_up), width = 0,
+                  alpha = 0.5, col = "grey") +
+    geom_line(data = data_for_plot_slope[data_for_plot_slope$Trt == "No study drug", ], aes(x = Rand_date, y = slope_trt_med), 
+              linewidth = 1.25, alpha = 0.7, col = "black") +
+    geom_point(data = data_for_plot_slope[data_for_plot_slope$Trt == trt, ], aes(x = Rand_date, y = slope_med),
+               size = 2.5, alpha = 0.25, col = col[i]) +
+    geom_errorbar(data = data_for_plot_slope[data_for_plot_slope$Trt == trt, ], aes(x = Rand_date, ymin = slope_low, ymax = slope_up), width = 0,
+                  alpha = 0.25, col = col[i]) +
+    geom_line(data = data_for_plot_slope[data_for_plot_slope$Trt == trt, ], aes(x = Rand_date, y = slope_trt_med), 
+              linewidth = 1.25, alpha = 0.9, col = col[i]) +
+
+    xlab("Randomisation date") +
+    ylab("Viral reduction per day (log10 units)") +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    theme(strip.text = element_text(size = 10, face = "bold"),
+          axis.title = element_blank(),
+          plot.title = element_text(size = 14, face = "bold"),
+          panel.spacing = unit(1, "lines")) +
+    ggtitle(lab) +
+    ylim(-3,0)
+  
+  plot_list[[i]] <- G
+}
+
+GG <- ggarrange(plotlist = plot_list, ncol = 3, nrow = 2)
+GG2 <- annotate_figure(GG, left = textGrob(labs, 
+                                           rot = 90, vjust = 0.5, gp = gpar(cex = 1.1)),
+                       bottom = textGrob(expression(bold("Randomisation date")), gp = gpar(cex = 1.1)))
+
+GG2
+```
+
+```{r}
+png(paste0("Plots/slope_by_time_trt_", max, ".png"), width = 10, height = 6, units = "in", res = 350)
+GG2
+dev.off()
+```
+
+# Plot meta-analysis
+
+```{r}
+resDir <- "Rout/01_Rout_temporal_splines_analysis"
+list_files <- list.files(resDir)
+
+#dmax <- 8 #5.5 8
+mod <- "Stan_models/Temporal_spline_mod2_w_slope.stan" #Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan
+cov <- 2 #2
+prior <- 1 #2
+
+ind_res <- which(model_settings$mod == mod &
+                 model_settings$cov_matrices == cov & model_settings$prior == prior)
+```
+
+```{r}
+effect_ests <- list()
+
+for(i in ind_res){
+  load(paste0(resDir, "/", list_files[grep(paste0("fits_", i, ".RData"), list_files)]))
+  platcov_dat <- platcov_dat # data_list[[model_settings$Data_ID[i]]]
+  intervention = model_settings$intervention[i] # prefix of analysis file
+  ref_arm = "No study drug"
+  trt_intervention = unique(platcov_dat$Trt)
+  trts = trt_intervention[trt_intervention!=ref_arm] # get interventions
+  effect_ests[[i]] = 
+    exp(summary(out, pars='trt_effect',use_cache=F,probs=my_probs)$summary[,c('2.5%', '10%','50%','90%','97.5%'),drop=F])
+  rownames(effect_ests[[i]])=trts
+}
+
+```
+
+```{r}
+formatter <- function(x){ 
+  (x-1)*100 
+}
+```
+
+```{r}
+effect_meta <- (do.call("rbind", effect_ests))
+
+Trt_meta <- row.names(effect_meta)
+effect_meta <- data.frame(effect_meta, Trt_meta)
+colnames(effect_meta) <- c("L95", "L80", "med", "U80", "U95", "Trt")
+#effect_meta$model <- rep(model_settings$mod, each = length(unique(Trt_meta)))
+#effect_meta$model <- as.factor(as.character(effect_meta$model))
+#levels(effect_meta$model) <- c("Linear", "Non-linear")
+#effect_meta$model <- factor(effect_meta$model, levels = rev(c("Linear", "Non-linear")))
+
+effect_meta$Dmax <- rep(model_settings$Dmax[ind_res], each = length(unique(Trt_meta)))
+effect_meta$Dmax <- as.factor(effect_meta$Dmax)
+levels(effect_meta$Dmax) <- c("5 days", "7 days")
+
+row.names(effect_meta) <- NULL
+
+effect_meta$Trt <- as.factor(effect_meta$Trt)
+effect_meta$Trt <- factor(effect_meta$Trt, levels = c("Ivermectin", "Favipiravir", "Regeneron",
+                                                      "Molnupiravir", "Remdesivir", "Nirmatrelvir + Ritonavir"))
+levels(effect_meta$Trt)[3] <- "Casirivimab/Imdevimab"
+levels(effect_meta$Trt)[6] <- "Nirmatrelvir"
+
+
+my.labels <- levels(effect_meta$Trt)
+my.labels[3] <- "Casirivimab/\nImdevimab"
+
+G4 <- ggplot(effect_meta, aes(x = Trt, y = med, col = Dmax)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_rect(aes(ymin = 0.6, ymax = 1.2, xmin = 0, xmax = 7), fill = "gray", alpha = 0.05, col = NA) +
+  theme_bw() +
+  coord_flip() +
+  geom_errorbar(aes(ymin = L95, ymax = U95), width = 0, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(x = Trt, ymin = L80, ymax = U80),position = position_dodge(width = 0.5), width = 0, linewidth = 1) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_hline(yintercept = 1, col = "red", linetype = "dashed") +
+  scale_color_manual(values = c("#BB2525", "#191D88"), name = "Follow-up duration") +
+  scale_shape_manual(values = c(16,17), name = "Model", guide = "none") +
+  scale_y_continuous(labels = formatter, limits = c(0.6, 2.8), expand = c(0,0),
+                     breaks = seq(0.8,2.8,0.2)) +
+  ylab("Change in rate of viral clearance (%)") +
+  xlab("") + 
+  theme(axis.title  = element_text(face = "bold"),
+        plot.title = element_text(face = "bold"),
+        legend.position = "bottom",
+        plot.margin = margin(0.2,0.5,0,0, unit = "cm")) +
+  scale_x_discrete(labels = my.labels)
+G4
+```
+
+```{r}
+png("Plots/Meta_analysis.png", width = 6, height = 5, units = "in", res = 350)
+G4
 dev.off()
 ```
