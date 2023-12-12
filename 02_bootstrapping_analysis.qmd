@@ -19,6 +19,8 @@ library(tidyverse)
 library(kableExtra)
 library(finalfit)
 library(RColorBrewer)
+library(ggpubr)
+library(grid)
 
 ## information on software/hardware used
 version
@@ -115,272 +117,101 @@ if(RUN_MODELS){
 }
 ```
 
-```{r}
-intervention = 'Unblinded_meta' # prefix of analysis file
-ref_arm = 'No study drug'
-```
-
-```{r load_data}
-#| echo: false
-# set as file with relevant dataset
-itt_population_all = read.csv('Analysis_Data/ITT_population.csv')
-
-f_name = paste0("Analysis_Data/", intervention,'_analysis.csv')
-platcov_dat = read.csv(f_name)
-platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
-trt_intervention = unique(platcov_dat$Trt)
-
-if(!all(platcov_dat$ID %in% itt_population_all$ID)) stop('IDs do not match ITT population')
-
-writeLines(sprintf('Missing patients in %s arm:',trt_intervention))
-ind = itt_population_all$Treatment%in%trt_intervention &
-  !itt_population_all$ID %in% platcov_dat$ID
-
-itt_population_all$ID[ind]
-itt_population_all$Treatment[ind]
-# interventions
-if(length(trt_intervention)==0) stop('no interventions!')
-trts = trt_intervention[trt_intervention!=ref_arm] # get interventions
-```
-
-## Make modified intention to treat population
-
-```{r make_analysis_data}
-#| echo: false
-platcov_dat = platcov_dat %>% group_by(ID) %>%
-  mutate(
-    mITT = any(Per_protocol_sample==1 & Timepoint_ID>=3) &
-      !all(CT_NS==40))
-
-pop_table = platcov_dat %>% distinct(ID, .keep_all = T)
-table(Intervention=pop_table$Trt, `mITT population` = pop_table$mITT)
-```
-
-## Baseline characteristics
+## Extract results
 
 ```{r}
-#| echo: false
-platcov_dat = platcov_dat %>% ungroup() %>%
-  mutate(Study_time = as.numeric(difftime(Rand_date,min(Rand_date),units = 'weeks')),
-         Study_time = scale(Study_time) ) %>%
-  group_by(ID, Timepoint_ID) %>%
-  mutate(daily_VL = mean(log10_viral_load),
-         Sex = as.factor(ifelse(Sex==1,'Male','Female')),
-         Site = as.factor(Site),
-         Trt = factor(Trt, levels=c(ref_arm, trts)),
-         Vaccinated = as.factor(ifelse(N_dose>0,'Yes','No')),
-         Variant = as.factor(Variant)#normalise
-         )  %>%
-  ungroup() %>%
-  mutate(trt_color = brewer.pal(name = 'Dark2',8)[c(1,7)][as.numeric(Trt)]) 
+res = array(dim = c(nrow(model_settings), 6))
 
-Baseline_data = platcov_dat %>% ungroup() %>% 
-  distinct(ID, .keep_all = T) %>%
-  filter(Timepoint_ID==0) %>% 
-  mutate(Baseline.viral.load = daily_VL)
-
-
-tab.ff <- Baseline_data %>% filter(mITT) %>%
-  summary_factorlist(
-    dependent = "Trt", # name of grouping / treatment variable
-    explanatory = c("Site", "Age", 'Sex','BMI', "Weight", "Baseline.viral.load", 
-                    "Variant",'Symptom_onset','Vaccinated','Fever_Baseline'),
-    total_col = T, # add column with statistics for the whole sample
-    add_row_total = F, # add column with number of valid cases
-    include_row_missing_col = FALSE,
-    add_dependent_label = T,
-    na_include = TRUE # make variables' missing data explicit
-  ) %>%
-  kbl(
-    caption = "Baseline characteristics in mITT population",
-    booktabs = TRUE,
-    align = "lrlrrr",
-  ) %>%
-  kable_classic(full_width = FALSE)
-tab.ff
+for(i in 1:nrow(model_settings)){
+  load(paste('Rout/02_Rout_bootstraps_analysis/model_fits_bootstraps_',i,'.RData',sep=''))
+  thetas_trt = rstan::extract(out, pars='trt_effect')$trt_effect
+  res[i, ] = c(quantile(thetas_trt, probs = c(0.025, 0.5, 0.975)),
+               quantile(thetas_trt, probs = 0.975)-
+                 quantile(thetas_trt, probs = 0.025),
+               sd(thetas_trt),
+               mean(thetas_trt)/sd(thetas_trt))
+}
 ```
 
-## Fit models
+```{r}
+colnames(res) <- c("low", "med", "up", "IC_width", "sd", "z_score")
+
+results <- cbind(model_settings, res)
+results$contrasts <- paste0(results$intervention, results$ref_arm, results$data_ID)
+
+unique_contrast <- unique(results$contrasts)
+```
 
 ```{r}
-#| echo: false
-source('priors.R')
+results_median <- results %>%
+  group_by(contrasts, Dmax) %>%
+  summarise(med_z = median(z_score)) %>%
+  as.data.frame()
+```
 
-covs_base = c('Site') #'Study_time'
-covs_full=c(covs_base, 'Age_scaled','Symptom_onset','N_dose')
+## Plot
 
-# Analysis data
-platcov_dat_analysis_list = list()
-stan_inputs = list()
+```{r}
+tags <- c("A", "B", "C", "D", "E", "F")
 
-for(i in 1:length(Dmax)){
-  platcov_dat_analysis_list[[i]] = 
-  platcov_dat %>% ungroup() %>%
-  filter(Time <= Dmax[i], mITT) %>%
-  arrange(log10_viral_load==log10_cens_vl) %>%
-  mutate(Variant = as.factor(Variant),
-         Site = as.factor(Site),
-         RnaseP_scaled = scale(40 - CT_RNaseP,scale = F),
-         Mean_age = mean(Age[!duplicated(ID)]),
-         SD_age = sd(Age[!duplicated(ID)]),
-         Age_scaled = (Age-Mean_age)/SD_age,
-         Symptom_onset = ifelse(is.na(Symptom_onset),2,Symptom_onset)) 
+plot_list <- list()
+
+for(i in 1:length(unique_contrast)){
+  data_plot_all <- results[results$contrasts == unique_contrast[i], ]
+  data_plot_median <- results_median[results_median$contrasts == unique_contrast[i], ]
   
-writeLines(sprintf('Analysis dataset for follow-up duration of %s days contains %s patients and %s datapoints (%s above LLOD, %s%%)',
-                   max(floor(platcov_dat_analysis_list[[i]]$Time)),
-                   length(unique(platcov_dat_analysis_list[[i]]$ID)),
-                   nrow(platcov_dat_analysis_list[[i]]),
-                   sum(platcov_dat_analysis_list[[i]]$CT_NS<40),
-                   round(100*mean(platcov_dat_analysis_list[[i]]$CT_NS<40))))
+  intervention <- data_plot_all$intervention[1]
+  ref_arm <- data_plot_all$ref_arm[1]
+  
+  if(intervention == "Nirmatrelvir + Ritonavir"){intervention <- "Nirmatrelvir"}
+  
 
-stan_inputs[[i]] = 
-  make_stan_inputs(input_data_fit = platcov_dat_analysis_list[[i]],
-                   int_covs_base = covs_base,
-                   int_covs_full = covs_full,
-                   slope_covs_base = covs_base,
-                   slope_covs_full = covs_full,
-                   trt_frmla = formula('~ Trt'),
-                   Dmax = Dmax[i])
+  if(intervention == "Nirmatrelvir" & data_plot_all$data_ID[1] == 2 &
+     ref_arm == "No study drug"){ref_arm <- "No study drug (before Feb 2023)"}
+  if(intervention == "Nirmatrelvir" & data_plot_all$data_ID[1] == 3){ref_arm <- "No study drug (after Feb 2023)"}
+  if(intervention == "Regeneron"){intervention <- "Casirivimab/imdevimab"}
+
+  day_max_z <- data_plot_median$Dmax[data_plot_median$med_z == max(data_plot_median$med_z)]
+  
+  lab <- paste0(intervention, " vs \n", ref_arm)
+  
+  tag <- tags[i]
+  
+  plot_list[[i]] <-
+  
+  ggplot() +
+    geom_jitter(data = data_plot_all, aes(x = Dmax, y = z_score), width = 0.15, size = 1.2, shape = 1,
+                stroke =1, col = "#7D7C7C", alpha = 0.5) +
+    geom_vline(xintercept = day_max_z, linetype = "dashed", linewidth = 0.55) +
+    geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.55) +
+    geom_line(data = data_plot_median,  aes(x = Dmax, y = med_z),
+              col = "red", linewidth = 1) +
+    geom_point(data = data_plot_median,  aes(x = Dmax, y = med_z), size = 2.5, shape = 21,
+               stroke = 1, col = "white", fill = "red") +
+    theme_bw() +
+    scale_x_continuous(breaks = seq(2,14,2), minor_breaks = 2:14) +
+    ylim(-3,13) +
+    xlab("") +
+    ylab("") +
+    ggtitle(lab) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9),
+          axis.text = element_text(size = 8),
+          plot.tag.position = c(0.175,0.99),
+          plot.tag = element_text(size = 9, face = "bold")) +
+    labs(tag = tag)
+  
+  
   
 }
-```
 
-```{r setup_models}
-all_mods = c("Stan_models/Temporal_spline_mod2_w_slope.stan",
-             "Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan")
-
-model_settings = expand.grid(mod = all_mods,
-                             prior = 1:2,
-                             cov_matrices = 1:2, 
-                             dataset = 1:2,
-                             Dmax = Dmax,
-                             num_knots_alpha = 10,
-                             spline_degree_alpha = 4,
-                             num_knots_beta = 10,
-                             spline_degree_beta = 4)
-
-model_settings$Niter = 4000
-model_settings$Nwarmup = 2000
-model_settings$Nthin = 4
-model_settings$Nchain = 4
-
-model_settings$intervention <- intervention
-
-writeLines(sprintf('We are running all models with %s chains and %s samples for each chain, discarding %s for burn-in and thining every %s, thus giving a total of %s posterior samples per model.',
-                   unique(model_settings$Nchain),
-                   unique(model_settings$Niter),
-                   unique(model_settings$Nwarmup),
-                   unique(model_settings$Nthin), 
-                   unique(model_settings$Nchain*(model_settings$Niter-model_settings$Nwarmup)/model_settings$Nthin)))
-
-model_setup_f_name = paste0('Rout/model_run_setup_',intervention,'.RData')
-save(model_settings, 
-     platcov_dat_analysis_list,
-     stan_inputs, 
-     all_priors,
-     file = model_setup_f_name)
+G <- ggarrange(plotlist = plot_list, ncol = 3, nrow = 2) #, labels = "AUTO", hjust = -5.5,
+              # font.label = list(size = 10))
+G
 ```
 
 ```{r}
-if(RUN_MODELS){
-  system(paste('Rscript --vanilla run_models_local.R',intervention))
-}
-```
-
-```{r}
-ff = list.files('Rout/', pattern = intervention)
-ff = ff[grep(pattern = 'model_fits_',x = ff)]
-if(!length(ff)==nrow(model_settings)) stop('not all outputs are ready for all model settings')
-ff = paste0('Rout/',ff)
-```
-
-main model selection
-
-```{r}
-main_mod = which(model_settings$prior==1&
-                   model_settings$cov_matrices==1&
-                   model_settings$mod==all_mods[1])
-
-model_cols = brewer.pal(n = nrow(model_settings), name = 'Set1')
-names(model_cols) = paste('model', 1:nrow(model_settings))
-```
-
-# Plot treatment effect
-
-```{r get_effects}
-effect_ests=list()
-for(i in 1:length(ff)){
-  load(ff[i])
-  effect_ests[[i]] = 
-    summary(out, pars='trt_effect',use_cache=F,probs=my_probs)$summary[,c('2.5%','10%','50%','90%','97.5%'),drop=F]
-  rownames(effect_ests[[i]])=trts
-}
-```
-
-```{r Figure_main, fig.height=7, fig.width=10}
-par(las=1, mar=c(5,5,2,2),cex.lab=1.3, cex.axis=1.3, mfrow=c(1,2))
-plot_serial_data(xx = platcov_dat_analysis)
-plot_effect_estimates(effect_ests = effect_ests,
-                      plot_models = 1:length(ff),
-                      study_threshold = study_threshold,
-                      mod_cols = model_cols[1:length(ff)],
-                      my_pch = 15)
-# title(intervention)
-legend('right',pch=15:16,legend = c('Linear','Non-linear'),
-       col = model_cols,inset=0.03, cex=1.5)
-
-load(ff[main_mod])
-round(100*(exp(quantile(rstan::extract(out, pars = 'trt_effect')$trt_effect, probs = my_probs))-1))
-
-writeLines(sprintf('Probability that the effect is less than %s%% is %s',study_threshold,
-                   mean(rstan::extract(out, pars = 'trt_effect')$trt_effect<log(study_threshold))))
-
-load(ff[2])
-round(100*(exp(quantile(rstan::extract(out, pars = 'trt_effect')$trt_effect, probs = my_probs))-1))
-
-writeLines(sprintf('Probability that the effect is less than %s%% is %s',study_threshold,
-                   mean(rstan::extract(out, pars = 'trt_effect')$trt_effect<log(study_threshold))))
-```
-
-```{r slopes_plot}
-load(ff[main_mod])
-par(las=1, cex.lab=1.5, cex.axis=1.5)
-trt_cols = rev(unique(platcov_dat_analysis$trt_color))
-names(trt_cols) = unique(platcov_dat_analysis$Trt)
-par(mar=c(5,5,2,2))
-xx=make_slopes_plot(stan_out = out, 
-                    analysis_data_stan = stan_inputs$analysis_data_stan,
-                    ID_map = stan_inputs$ID_map,
-                    data_summary = Baseline_data,
-                    my_lims = c(0,50),
-                    my_vals = c(5,15,25,35,45))
-
-```
-
-```{r coef_plot}
-coef_to_plot=1
-coef_model = which(model_settings$prior==1&
-                     model_settings$cov_matrices==coef_to_plot&
-                     model_settings$mod==all_mods[2])
-load(ff[coef_model])
-par(las=1, mfrow=c(1,2), mar=c(5,7,2,2))
-plot_coef_effects(stan_out = out,cov_mat = coef_to_plot,stan_inputs = stan_inputs)
-```
-
-## Individual patient data
-
-```{r individ_data}
-model_list = list()
-for(i in 1:length(ff)){
-  load(ff[i])
-  model_list[[i]] = out
-}
-
-ID_map = merge(stan_inputs$ID_map, Baseline_data, by.x = 'ID_key',by.y = 'ID')
-par(mfrow=c(4,4), mar=c(2,2,2,2),las=1)
-plot_data_model_fits(model_list = model_list, 
-                     models_to_plot = 1:2,
-                     K_plots = 16,mod_cols = model_cols,
-                     ID_map = ID_map,
-                     analysis_data_stan = stan_inputs$analysis_data_stan)
+png("Plots/z_scores.png", width = 8, height = 6, units = "in", res = 350)
+annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 0.9, fontface="bold")),
+                bottom = textGrob("Days follow-up included", gp = gpar(cex = 0.9, fontface="bold")))
+dev.off()
 ```

@@ -232,10 +232,10 @@ if(RUN_MODELS){
 ```
 
 ```{r}
-ff = list.files('Rout/', pattern = intervention)
-ff = ff[grep(pattern = 'model_fits_',x = ff)]
-if(!length(ff)==nrow(model_settings)) stop('not all outputs are ready for all model settings')
-ff = paste0('Rout/',ff)
+# ff = list.files('Rout/', pattern = intervention)
+# ff = ff[grep(pattern = 'model_fits_',x = ff)]
+# if(!length(ff)==nrow(model_settings)) stop('not all outputs are ready for all model settings')
+# ff = paste0('Rout/',ff)
 ```
 
 main model selection
@@ -245,8 +245,8 @@ main_mod = which(model_settings$prior==1&
                    model_settings$cov_matrices==1&
                    model_settings$mod==all_mods[1])
 
-model_cols = brewer.pal(n = nrow(model_settings), name = 'Set1')
-names(model_cols) = paste('model', 1:nrow(model_settings))
+# model_cols = brewer.pal(n = nrow(model_settings), name = 'Set1')
+# names(model_cols) = paste('model', 1:nrow(model_settings))
 ```
 
 # Baseline viral load dynamics
@@ -350,6 +350,16 @@ writeLines(sprintf('R-squared = %s',
                    round(summary(mod2)$r.sq,4)))
 ```
 
+```{r}
+mod2_lm <- lm(Baseline.viral.load ~ Symptom_onset_round, 
+            data = Baseline_vl_data_Plot) 
+
+summary(mod2_lm)
+
+cor.test(Baseline_vl_data_Plot$Baseline.viral.load, Baseline_vl_data_Plot$Symptom_onset_round)
+
+```
+
 ### GAM mod 3: Symptom onset vs time
 
 ```{r}
@@ -412,7 +422,7 @@ mod4 <- gam(Baseline.viral.load ~ s(Symptom_onset_round, k=4) +
                                   data = Baseline_vl_data_Plot) 
 
 pred_mod4 <- predict_gam(mod4, values = list(Symptom_onset_round = c(1,2,3,4)))
-pred_mod4$Rand_date <-  back_transfrom_date(platcov_dat, preds$Study_time)
+pred_mod4$Rand_date <-  back_transfrom_date(platcov_dat, pred_mod4$Study_time)
 
 pred_mod4$Symptom_onset_round <- as.factor(pred_mod4$Symptom_onset_round)
 levels(pred_mod4$Symptom_onset_round)  <- c("1 day", "2 days", "3 days", "4 days")
@@ -443,7 +453,7 @@ Gr_mod4 <-pred_mod4 %>%
         strip.text = element_text(size = 8),
         plot.title = element_text(size = 11, face = "bold")) +
   scale_alpha_manual(values = rep(0.6, length(vars)), guide = "none") +
-  ggtitle("Temporal dynamics of baseline viral loads by time since symptom onset") +
+  ggtitle("Temporal dynamics of baseline viral densities by time since symptom onset") +
   scale_y_continuous(labels=label_math(), breaks = seq(0,9,2)) 
 
 Gr_mod4
@@ -718,6 +728,25 @@ GG2
 png(paste0("Plots/slope_by_time_trt_", max, ".png"), width = 10, height = 6, units = "in", res = 350)
 GG2
 dev.off()
+```
+
+```{r}
+data_for_plot_slope$half_life_med <- 24*log10(2)/(-(data_for_plot_slope$slope_med))
+data_for_plot_slope$half_life_trt_med <- 24*log10(2)/(-(data_for_plot_slope$slope_trt_med))
+
+data_for_plot_slope %>%
+  filter(Trt == "No study drug") %>%
+  summarise(min = min(half_life_trt_med),
+            max = max(half_life_trt_med))
+
+data_for_plot_slope %>%
+  filter(Trt == "Nirmatrelvir + Ritonavir") %>%
+  summarise(min = min(half_life_trt_med),
+            max = max(half_life_trt_med))
+
+plot(data_for_plot_slope$Rand_date, data_for_plot_slope$half_life_trt_med)
+
+
 ```
 
 # Plot meta-analysis
