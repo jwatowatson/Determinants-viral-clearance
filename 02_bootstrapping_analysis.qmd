@@ -211,7 +211,7 @@ G
 
 ```{r}
 png("Plots/z_scores.png", width = 8, height = 6, units = "in", res = 350)
-annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 0.9, fontface="bold")),
-                bottom = textGrob("Days follow-up included", gp = gpar(cex = 0.9, fontface="bold")))
+annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 1.2, fontface="bold")),
+                bottom = textGrob("Days follow-up included", gp = gpar(cex = 1.2, fontface="bold")))
 dev.off()
 ```
