@@ -42,7 +42,9 @@ if(job_i > Max_job) stop('no model setting corresponding to job ID')
     filter(Trt %in% c(ref_arm, trts), 
            Timepoint_ID <= Dmax, # timepoint is the day of follow-up
            Time < Dmax+1, # sample has to be taken at most 24 hours after last day
-           mITT, Site=='th001') %>%
+           mITT, 
+           #Site=='th001'
+           ) %>%
     mutate(Trt = factor(Trt, levels=c(ref_arm, trts)),
            Variant = as.factor(Variant),
            Site = as.factor(Site),
