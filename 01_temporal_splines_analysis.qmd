@@ -729,23 +729,32 @@ GG2
 dev.off()
 ```
 
+### Summarizing population clearance half-life over time
+
 ```{r}
-data_for_plot_slope$half_life_med <- 24*log10(2)/(-(data_for_plot_slope$slope_med))
-data_for_plot_slope$half_life_trt_med <- 24*log10(2)/(-(data_for_plot_slope$slope_trt_med))
+data_for_plot_slope$half_life_med_pop <- 24*log10(2)/(-(data_for_plot_slope$beta_hat))
 
-data_for_plot_slope %>%
-  filter(Trt == "No study drug") %>%
-  summarise(min = min(half_life_trt_med),
-            max = max(half_life_trt_med))
-
-data_for_plot_slope %>%
-  filter(Trt == "Nirmatrelvir + Ritonavir") %>%
-  summarise(min = min(half_life_trt_med),
-            max = max(half_life_trt_med))
-
-plot(data_for_plot_slope$Rand_date, data_for_plot_slope$half_life_trt_med)
+hl_before <- data_for_plot_slope$half_life_med_pop[data_for_plot_slope$Rand_date == min(data_for_plot_slope$Rand_date)]
 
 
+hl_after <- data_for_plot_slope$half_life_med_pop[data_for_plot_slope$Rand_date == max(data_for_plot_slope$Rand_date)]
+
+writeLines(sprintf('Estimated population clearance half-life at the beginning of the trial: %s hours \nEstimated population clearance half-life in late 2023: %s hours',
+               round(hl_before,1),
+               round(hl_after,1)))
+
+
+# data_for_plot_slope$half_life_trt_med <- 24*log10(2)/(-(data_for_plot_slope$slope_trt_med))
+# 
+# data_for_plot_slope %>%
+#   filter(Trt == "No study drug") %>%
+#   summarise(min = min(half_life_trt_med),
+#             max = max(half_life_trt_med))
+# 
+# data_for_plot_slope %>%
+#   filter(Trt == "Nirmatrelvir + Ritonavir") %>%
+#   summarise(min = min(half_life_trt_med),
+#             max = max(half_life_trt_med))
 ```
 
 # Plot meta-analysis
