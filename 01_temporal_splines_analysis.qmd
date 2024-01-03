@@ -842,3 +842,45 @@ png("Plots/Meta_analysis.png", width = 6, height = 5, units = "in", res = 350)
 G4
 dev.off()
 ```
+
+# Plot randomization date
+
+```{r}
+timeline_data <- platcov_dat[platcov_dat$mITT,]
+
+timeline_data <- unique(timeline_data[,c("ID", "Trt",  "Rand_date")])
+
+timeline_data$Trt <- factor(timeline_data$Trt, levels = c("No study drug", "Ivermectin", "Favipiravir", "Regeneron","Molnupiravir", "Remdesivir", "Nirmatrelvir + Ritonavir"))
+
+levels(timeline_data$Trt)[4] <- "Casirivimab/Imdevimab"
+levels(timeline_data$Trt)[7] <- "Nirmatrelvir"
+
+start_year <- as.Date("2022-01-01")
+end_year <- as.Date("2024-01-01")
+
+timeline_data$Rand_date <- as.Date(timeline_data$Rand_date)
+
+G_timeline <- ggplot(data = timeline_data, aes(x=Rand_date, y = Trt)) +
+  geom_point(size = 3.5, alpha = 0.4, col = "#424769") +
+  theme_bw() +
+  xlab("") +
+  ylab("") +
+  geom_vline(xintercept = seq.Date(start_year, end_year, "12 months"),
+             col = "red", linetype = "dashed") +
+  scale_x_date(date_labels =  "%b %y", breaks = seq.Date(as.Date("2021-01-01"), end_year, "4 months"))+
+  theme(axis.title = element_text(size = 15, face = "bold"),
+        strip.text = element_text(size = 15, face = "bold"),
+        axis.text = ggtext::element_markdown(size = 12),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size = 15, face = "bold"),
+        legend.position='bottom') +
+   scale_y_discrete(drop = F)
+G_timeline
+```
+
+```{r}
+png("Plots/FigSx_timeline.png", width = 8, height = 5, units = "in", res = 350)
+G_timeline
+dev.off()
+```
