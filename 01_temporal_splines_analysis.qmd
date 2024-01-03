@@ -479,29 +479,26 @@ dev.off()
 
 ```{r}
 plot_dat <- platcov_dat %>%
-  filter(mITT, Timepoint_ID != 8)
+  filter(mITT, Timepoint_ID != 8, Trt == "No study drug")
 
-plot_dat$Epoch_2 <- "Before Jan 2023" #"Jul 2022 to Dec 2022"
+plot_dat$Epoch_2 <- "Before Jan 2023" 
 plot_dat$Epoch_2[plot_dat$Rand_date >= as.Date("2023-01-01")] <- "After Jan 2023"
-#plot_dat$Epoch_2[plot_dat$Rand_date < as.Date("2022-07-01")] <- "Before Jul 2022"
-
 plot_dat$Epoch_2 <- as.factor(plot_dat$Epoch_2)
 plot_dat$Epoch_2 <- factor(plot_dat$Epoch_2, levels = c("Before Jan 2023", "After Jan 2023"))
-                             #c("Before Jul 2022", "Jul 2022 to Dec 2022", "After Jan 2023"))
-
-plot_dat <- plot_dat %>%
+                             
+plot_dat <- plot_dat %>%  
   group_by(ID, Timepoint_ID) %>%
   mutate(daily_VL = mean(log10_viral_load))
 
 plot_dat_daily <- unique(plot_dat[,c("ID", "Trt", "Timepoint_ID", "Epoch_2", "daily_VL")])
 
-plot_dat_daily <- plot_dat_daily %>% filter(Trt %in% c("No study drug", "Nirmatrelvir + Ritonavir"))
-
-levels(plot_dat_daily$Trt)[levels(plot_dat_daily$Trt) == "Nirmatrelvir + Ritonavir"] <- "Nirmatrelvir"
-
 med_data <- plot_dat_daily %>%
   group_by(Epoch_2, Timepoint_ID, Trt) %>%
   summarise(daily_VL = median(daily_VL))
+
+n_tab <- table(unique(plot_dat[,c("ID", "Epoch_2")])[,2])
+
+
 
 Gr_dynamics <- ggplot() +
   geom_jitter(data = plot_dat_daily, aes(x = Timepoint_ID, y = daily_VL,
@@ -519,7 +516,7 @@ Gr_dynamics <- ggplot() +
   scale_fill_manual(values = c("#005AB5",  "#DC3220"), name = "") + # "#F99417",
   scale_colour_manual(values = c("#005AB5",  "#DC3220"), name = "") + # "#F99417",
   scale_x_continuous(breaks = 0:14) +
-  scale_y_continuous(labels=label_math(), breaks = seq(0,8,2)) +
+  scale_y_continuous(labels=label_math(), breaks = seq(0,8,2), limits = c(0,9)) +
   xlab("Time since randomisation (days)") +
   ylab("SARS-CoV-2 genomes/mL") + 
   theme(axis.title  = element_text(face = "bold"),
@@ -527,13 +524,15 @@ Gr_dynamics <- ggplot() +
         legend.position = "bottom",
         axis.text = element_text(size = 10),
         strip.text = element_text(size = 10, face = "bold")) +
- # ggtitle("No-study-drug arm") +
+  annotate(geom = "text", x = 8, y = 8.5, label = paste0("Before Jan 2023: n = ", n_tab[1]), hjust = 0) +
+  annotate(geom = "text", x = 8, y = 8, label = paste0("After Jan 2023: n = ", n_tab[2]),
+           hjust = 0) +
   facet_grid(.~ Trt)
 Gr_dynamics 
 ```
 
 ```{r}
-png("Plots/Figx_dynamics_before_after.png", width = 10, height = 5, units = "in", res = 350)
+png("Plots/Figx_dynamics_before_after.png", width = 5, height = 5, units = "in", res = 350)
 Gr_dynamics
 dev.off()
 ```
