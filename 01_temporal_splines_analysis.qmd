@@ -545,7 +545,7 @@ dev.off()
 resDir <- "Rout/01_Rout_temporal_splines_analysis"
 list_files <- list.files(resDir)
 
-dmax <- 8 #5.5 8
+dmax <- 5.5 #5.5 8
 mod <- "Stan_models/Temporal_spline_mod2_w_slope.stan" # "Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan" #" #
 cov <- 2 #2
 prior <- 1 #2
@@ -680,12 +680,15 @@ if(model_settings$Dmax[ind_res] == 5.5){
 
 plot_list <- list()
 
+Tags <- c("A", "B", "C", "D", "E", "F")
+
 for(i in 1:length(Trts)){
   trt <- Trts[i]
   lab <- as.character(trt)
-  if(lab == "Nirmatrelvir + Ritonavir"){lab <- "Nirmatrelvir"}
+  if(lab == "Nirmatrelvir + Ritonavir"){lab <- "Ritonavir-boosted nirmatrelvir"}
   if(lab == "Regeneron"){lab <- "Casirivimab/imdevimab"}
   
+  lab <- paste0(Tags[i], ") ", lab)
   
   G <- ggplot() +
     theme_bw() +
@@ -707,7 +710,7 @@ for(i in 1:length(Trts)){
     geom_hline(yintercept = 0, linetype = "dashed") +
     theme(strip.text = element_text(size = 10, face = "bold"),
           axis.title = element_blank(),
-          plot.title = element_text(size = 14, face = "bold"),
+          plot.title = element_text(size = 12, face = "bold"),
           panel.spacing = unit(1, "lines")) +
     ggtitle(lab) +
     ylim(-3,0)
@@ -732,29 +735,32 @@ dev.off()
 ### Summarizing population clearance half-life over time
 
 ```{r}
-data_for_plot_slope$half_life_med_pop <- 24*log10(2)/(-(data_for_plot_slope$beta_hat))
+data_for_plot_slope$half_life_trt_med <- 24*log10(2)/(-(data_for_plot_slope$slope_trt_med))
 
-hl_before <- data_for_plot_slope$half_life_med_pop[data_for_plot_slope$Rand_date == min(data_for_plot_slope$Rand_date)]
+#No study drug
+data_NSD <- data_for_plot_slope[data_for_plot_slope$Trt == "No study drug",]
+
+slope_before <- data_NSD[,c("slope_trt_med", "half_life_trt_med")][data_NSD$Rand_date == min(data_NSD$Rand_date),][1,]
+slope_after <- data_NSD[,c("slope_trt_med", "half_life_trt_med")][data_NSD$Rand_date == max(data_NSD$Rand_date),][1,]
+
+#Nirmatrelvir
+data_NMT <- data_for_plot_slope[data_for_plot_slope$Trt == "Nirmatrelvir + Ritonavir",]
+
+slope_before_NMT <- data_NMT[,c("slope_trt_med", "half_life_trt_med")][data_NMT$Rand_date == min(data_NMT$Rand_date),][1,]
+slope_after_NMT <- data_NMT[,c("slope_trt_med", "half_life_trt_med")][data_NMT$Rand_date == max(data_NMT$Rand_date),][1,]
 
 
-hl_after <- data_for_plot_slope$half_life_med_pop[data_for_plot_slope$Rand_date == max(data_for_plot_slope$Rand_date)]
+writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours',
+               round(slope_before[1],2),
+               round(slope_before[2],1),
+               round(slope_after[1],2),
+               round(slope_after[2],1),
+               round(slope_before_NMT[1],2),
+               round(slope_before_NMT[2],1),
+               round(slope_after_NMT[1],2),
+               round(slope_after_NMT[2],1)
+               ))
 
-writeLines(sprintf('Estimated population clearance half-life at the beginning of the trial: %s hours \nEstimated population clearance half-life in late 2023: %s hours',
-               round(hl_before,1),
-               round(hl_after,1)))
-
-
-# data_for_plot_slope$half_life_trt_med <- 24*log10(2)/(-(data_for_plot_slope$slope_trt_med))
-# 
-# data_for_plot_slope %>%
-#   filter(Trt == "No study drug") %>%
-#   summarise(min = min(half_life_trt_med),
-#             max = max(half_life_trt_med))
-# 
-# data_for_plot_slope %>%
-#   filter(Trt == "Nirmatrelvir + Ritonavir") %>%
-#   summarise(min = min(half_life_trt_med),
-#             max = max(half_life_trt_med))
 ```
 
 # Plot meta-analysis
