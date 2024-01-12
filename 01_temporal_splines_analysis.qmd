@@ -140,6 +140,15 @@ tab.ff <- Baseline_data %>% filter(mITT) %>%
 tab.ff
 ```
 
+```{r}
+ Baseline_data %>% filter(mITT) %>%
+   group_by(Trt) %>%
+   summarise(Q1 = round(quantile(Baseline.viral.load, 0.25),1),
+             Q2 = round(quantile(Baseline.viral.load, 0.5),1),
+             Q3 = round(quantile(Baseline.viral.load, 0.75),1),
+             mean = round(mean(Baseline.viral.load),1))
+```
+
 ## Fit models
 
 ```{r}
@@ -232,10 +241,10 @@ if(RUN_MODELS){
 ```
 
 ```{r}
-# ff = list.files('Rout/', pattern = intervention)
+ff = list.files('Rout/01_Rout_temporal_splines_analysis')
 # ff = ff[grep(pattern = 'model_fits_',x = ff)]
 # if(!length(ff)==nrow(model_settings)) stop('not all outputs are ready for all model settings')
-# ff = paste0('Rout/',ff)
+ff = paste0('Rout/01_Rout_temporal_splines_analysis/',ff)
 ```
 
 main model selection
@@ -392,7 +401,7 @@ Gr_mod3 <- pred_mod3 %>%
   geom_smooth_ci(linewidth = 1.5, col = "#D80032", ci_alpha = 0.25) +
   theme_bw() +
   xlab("Randomisation date") +
-  ylab("Time since symptomp onset (days)") +
+  ylab("Time since symptom onset (days)") +
   theme(axis.title = element_text(size = 10, face = "bold"),
         axis.text = element_text(size = 8)) 
 
@@ -442,7 +451,7 @@ Gr_mod4 <-pred_mod4 %>%
   facet_wrap(.~ Symptom_onset_round, ncol = 4) +
   guides(col = guide_legend(override.aes = list(size = 4))) +
   ggnewscale::new_scale_color() +
-  geom_smooth_ci(Symptom_onset_round,  linewidth = 1, col = "black", ci_alpha = 0.25) +
+  geom_smooth_ci(Symptom_onset_round,  linewidth = 1, col = "#D80032", ci_alpha = 0.25) +
   scale_linetype_manual(values = rep("solid",5), guide = "none") +
   theme_bw() +
   xlab("Randomisation date") +
@@ -545,7 +554,7 @@ dev.off()
 resDir <- "Rout/01_Rout_temporal_splines_analysis"
 list_files <- list.files(resDir)
 
-dmax <- 5.5 #5.5 8
+dmax <- 8 #5.5 8
 mod <- "Stan_models/Temporal_spline_mod2_w_slope.stan" # "Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan" #" #
 cov <- 2 #2
 prior <- 1 #2
@@ -594,6 +603,10 @@ if(mod == "Stan_models/Temporal_spline_mod2_w_slope.stan") {
 slope_summarize <- apply(slope_ALL, 2, quantile, c(0.025, 0.5, 0.975))
 slope_trt_summarize <- apply(slope_trt, 2, quantile, c(0.025, 0.5, 0.975))
 post_beta_hat_summarize <- apply(post_beta_hat, 2, quantile, c(0.025, 0.5, 0.975))
+
+slope_trt_for_summarize <- list("data" = platcov_dat_analysis_list[[model_settings$dataset[ind_res]]][ind_start,], "slope" = t(slope_trt))
+
+
 
 data_for_plot_slope <- platcov_dat_analysis_list[[model_settings$dataset[ind_res]]][ind_start,]
 data_for_plot_slope$slope_low <- slope_summarize[1,]
@@ -735,32 +748,77 @@ dev.off()
 ### Summarizing population clearance half-life over time
 
 ```{r}
-data_for_plot_slope$half_life_trt_med <- 24*log10(2)/(-(data_for_plot_slope$slope_trt_med))
-
+ind_tab <- slope_trt_for_summarize$data %>%
+  mutate(r_number = row_number()) %>%
+  group_by(Trt) %>%
+  filter(Rand_date != max(Rand_date)) %>%
+  summarise(min_index = r_number[which.min(Rand_date)],
+            max_index = r_number[which.max(Rand_date)]) %>%
+  as.data.frame()
+#######################################
+slope_to_hl  <- function(slope){
+  24*log10(2)/(-(slope)) 
+}
+#######################################
+formatter <- function(x){ 
+  (x-1)*100 
+}
+#######################################
 #No study drug
-data_NSD <- data_for_plot_slope[data_for_plot_slope$Trt == "No study drug",]
+slope_before <- median(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],])
+slope_after <- median(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],])
 
-slope_before <- data_NSD[,c("slope_trt_med", "half_life_trt_med")][data_NSD$Rand_date == min(data_NSD$Rand_date),][1,]
-slope_after <- data_NSD[,c("slope_trt_med", "half_life_trt_med")][data_NSD$Rand_date == max(data_NSD$Rand_date),][1,]
+relative_NSD <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],])/
+slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],]),
+c(0.025, 0.5, 0.975)))
 
 #Nirmatrelvir
-data_NMT <- data_for_plot_slope[data_for_plot_slope$Trt == "Nirmatrelvir + Ritonavir",]
+slope_before_NMT <- median(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])
+slope_after_NMT <- median(slope_trt_for_summarize$slope[ind_tab$max[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])
 
-slope_before_NMT <- data_NMT[,c("slope_trt_med", "half_life_trt_med")][data_NMT$Rand_date == min(data_NMT$Rand_date),][1,]
-slope_after_NMT <- data_NMT[,c("slope_trt_med", "half_life_trt_med")][data_NMT$Rand_date == max(data_NMT$Rand_date),][1,]
-
-
-writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours',
-               round(slope_before[1],2),
-               round(slope_before[2],1),
-               round(slope_after[1],2),
-               round(slope_after[2],1),
-               round(slope_before_NMT[1],2),
-               round(slope_before_NMT[2],1),
-               round(slope_after_NMT[1],2),
-               round(slope_after_NMT[2],1)
+relative_NMT <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])/slope_to_hl(
+slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],]),
+c(0.025, 0.5, 0.975)))
+#######################################
+writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)\n\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)',
+               round(slope_before,2),
+               round(slope_to_hl(slope_before),1),
+               round(slope_after,2),
+               round(slope_to_hl(slope_after),1),
+               round(relative_NSD[2],1),
+               round(relative_NSD[1],1),
+               round(relative_NSD[3],1),
+               round(slope_before_NMT,2),
+               round(slope_to_hl(slope_before_NMT),1),
+               round(slope_after_NMT,2),
+               round(slope_to_hl(slope_after_NMT),1),
+               round(relative_NMT[2],1),
+               round(relative_NMT[1],1),
+               round(relative_NMT[3],1)
                ))
 
+#######################################
+```
+
+```{r}
+
+```
+
+```{r}
+ind_tab <- slope_trt_for_summarize$data %>%
+  mutate(r_number = row_number()) %>%
+  group_by(Trt) %>%
+  filter(Rand_date != max(Rand_date)) %>%
+  summarise(min_index = r_number[which.min(Rand_date)],
+            max_index = r_number[which.max(Rand_date)]) %>%
+  as.data.frame()
+
+
+start_slope_NSD <- slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],]
+recent_slope_NSD <- slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],]
+
+
+quantile(24*log10(2)/(-(recent_slope_NSD)), c(0.025, 0.5, 0.975))
 ```
 
 # Plot meta-analysis
@@ -897,4 +955,48 @@ G_timeline
 png("Plots/FigSx_timeline.png", width = 8, height = 5, units = "in", res = 350)
 G_timeline
 dev.off()
+```
+
+# Leave-one-out analysis
+
+```{r}
+resDir <- "Rout/01_Rout_temporal_splines_analysis"
+list_files <- list.files(resDir)
+
+dmax <- 8 #5.5 8
+#mod <- "Stan_models/Temporal_spline_mod2_w_slope.stan" #Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan
+cov <- 2 #2
+prior <- 1 #2
+
+ind_res <- which(model_settings$Dmax == dmax &
+                 model_settings$cov_matrices == cov & model_settings$prior == prior)
+
+model_list = list()
+num <- as.numeric(str_extract(str_extract(ff, "fits_[0-9]+"), "[0-9]+"))
+
+for(i in 1:length(ind_res)){
+  load(ff[which(num == ind_res[i])])
+  model_list[[i]] = out
+}
+```
+
+```{r}
+#Proportional change
+log_lik_1 <- extract_log_lik(model_list[[1]], merge_chains = FALSE)
+r_eff <- relative_eff(exp(log_lik_1), cores = 2) 
+loo_1 <- loo(log_lik_1, r_eff = r_eff, cores = 2)
+print(loo_1)
+```
+
+```{r}
+#Additive change
+log_lik_2 <- extract_log_lik(model_list[[2]], merge_chains = FALSE)
+r_eff_2 <- relative_eff(exp(log_lik_2), cores = 2) 
+loo_2 <- loo(log_lik_2, r_eff = r_eff_2, cores = 2)
+print(loo_2)
+```
+
+```{r}
+comp <- loo_compare(loo_1, loo_2)
+print(comp)
 ```
