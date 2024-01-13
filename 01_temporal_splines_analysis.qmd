@@ -548,6 +548,17 @@ dev.off()
 
 # Splines fit for clearance rate
 
+```{r}
+#######################################
+slope_to_hl  <- function(slope){
+  24*log10(2)/(-(slope)) 
+}
+#######################################
+formatter <- function(x){ 
+  (x-1)*100 
+}
+```
+
 ### Choosing results
 
 ```{r}
@@ -618,6 +629,9 @@ data_for_plot_slope$slope_trt_med <- slope_trt_summarize[2,]
 data_for_plot_slope$slope_trt_up <- slope_trt_summarize[3,]
   
 data_for_plot_slope$beta_hat <- post_beta_hat_summarize[2,]
+data_for_plot_slope$beta_hat_low <- post_beta_hat_summarize[1,]
+data_for_plot_slope$beta_hat_up <- post_beta_hat_summarize[3,]
+
   
 data_for_plot_slope <- data_for_plot_slope[data_for_plot_slope$beta_hat != max(data_for_plot_slope$beta_hat),] 
 
@@ -745,6 +759,52 @@ GG2
 dev.off()
 ```
 
+```{r}
+
+mycolors <-  c("#E41A1C", "#377EB8", "#4DAF4A", "black", "#984EA3", "#FF8400", "#2B3499", "#E95793", "#999999")
+data_for_plot_slope$VariantClass_new <- factor(data_for_plot_slope$VariantClass_new, levels = vars[c(6, 1:5,8,9,7)])
+
+
+
+data_for_plot_slope$trancate <- "No"
+data_for_plot_slope$trancate[slope_to_hl(data_for_plot_slope$slope_med) > 30] <- "Yes"
+
+G_hl_trend <- ggplot() +
+  theme_bw() +
+  geom_point(data = data_for_plot_slope[data_for_plot_slope$Trt %in% c("No study drug", "Ivermectin", "Remdesivir") , ], 
+             aes(x = Rand_date, y = slope_to_hl(slope_med), col = VariantClass_new,
+                 alpha = VariantClass_new),
+             size = 2.5) +
+  geom_ribbon(data = data_for_plot_slope, aes(x = Rand_date, ymax = slope_to_hl(beta_hat_low), 
+                                              ymin =  slope_to_hl(beta_hat_up)), fill ="black",
+              alpha = 0.2) +
+  geom_line(data = data_for_plot_slope, aes(x = Rand_date, y = slope_to_hl(beta_hat)), 
+            linewidth = 1.25, alpha = 0.7, col = "black") +
+  scale_color_manual(values = mycolors, name = "Variants") +
+  scale_alpha_manual(values = rep(0.6, length(vars)), guide = "none") +
+  xlab("Randomisation date") +
+  ylab("Viral clearance half-life (hours)") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme(strip.text = element_text(size = 10, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        plot.title = element_text(size = 12, face = "bold"),
+        legend.position = "bottom",
+        panel.spacing = unit(1, "lines")) +
+  ylim(0,30) +
+  geom_rug(data = data_for_plot_slope[data_for_plot_slope$Trt %in% c("No study drug", "Ivermectin", "Remdesivir") &
+                                        data_for_plot_slope$trancate == "Yes", ],
+           aes(x = Rand_date, y = slope_to_hl(slope_med), col = VariantClass_new),
+           sides = "tl", outside = F,
+           length = unit(0.025, "npc"), linewidth = 0.75
+   )
+```
+
+```{r}
+png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 8, height = 6, units = "in", res = 350)
+G_hl_trend
+dev.off()
+```
+
 ### Summarizing population clearance half-life over time
 
 ```{r}
@@ -755,30 +815,24 @@ ind_tab <- slope_trt_for_summarize$data %>%
   summarise(min_index = r_number[which.min(Rand_date)],
             max_index = r_number[which.max(Rand_date)]) %>%
   as.data.frame()
-#######################################
-slope_to_hl  <- function(slope){
-  24*log10(2)/(-(slope)) 
-}
-#######################################
-formatter <- function(x){ 
-  (x-1)*100 
-}
+
 #######################################
 #No study drug
 slope_before <- median(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],])
+
 slope_after <- median(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],])
 
-relative_NSD <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],])/
-slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],]),
-c(0.025, 0.5, 0.975)))
+relative_NSD <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],])/
+                   slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],]),
+                   c(0.025, 0.5, 0.975)))
 
 #Nirmatrelvir
 slope_before_NMT <- median(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])
 slope_after_NMT <- median(slope_trt_for_summarize$slope[ind_tab$max[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])
 
-relative_NMT <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])/slope_to_hl(
-slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],]),
-c(0.025, 0.5, 0.975)))
+relative_NMT <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])/
+                   slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],]),
+                   c(0.025, 0.5, 0.975)))
 #######################################
 writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)\n\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)',
                round(slope_before,2),
