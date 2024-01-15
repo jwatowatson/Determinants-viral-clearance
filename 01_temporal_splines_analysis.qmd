@@ -779,7 +779,7 @@ G_hl_trend <- ggplot() +
                                               ymin =  slope_to_hl(beta_hat_up)), fill ="black",
               alpha = 0.2) +
   geom_line(data = data_for_plot_slope, aes(x = Rand_date, y = slope_to_hl(beta_hat)), 
-            linewidth = 1.25, alpha = 0.7, col = "black") +
+            linewidth = 1.5, alpha = 0.7, col = "black") +
   scale_color_manual(values = mycolors, name = "Variants") +
   scale_alpha_manual(values = rep(0.6, length(vars)), guide = "none") +
   xlab("Randomisation date") +
@@ -790,17 +790,18 @@ G_hl_trend <- ggplot() +
         plot.title = element_text(size = 12, face = "bold"),
         legend.position = "bottom",
         panel.spacing = unit(1, "lines")) +
-  ylim(0,30) +
+  scale_y_continuous(breaks = seq(0,30,5), limits = c(0,30)) +
   geom_rug(data = data_for_plot_slope[data_for_plot_slope$Trt %in% c("No study drug", "Ivermectin", "Remdesivir") &
                                         data_for_plot_slope$trancate == "Yes", ],
            aes(x = Rand_date, y = slope_to_hl(slope_med), col = VariantClass_new),
            sides = "tl", outside = F,
            length = unit(0.025, "npc"), linewidth = 0.75
    )
+G_hl_trend
 ```
 
 ```{r}
-png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 8, height = 6, units = "in", res = 350)
+png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 7, height = 6, units = "in", res = 350)
 G_hl_trend
 dev.off()
 ```
