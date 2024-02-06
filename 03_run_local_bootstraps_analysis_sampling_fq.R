@@ -6,19 +6,19 @@ library(rstan)
 library(matrixStats)
 library(doParallel)
 library(tidyverse)
+library(stringr)
 
 ############################################################################
 source('functions.R')
 
 ############################################################################
-covs_base = c('Site', 'Study_time', 'Variant', 'Age_scaled','Symptom_onset','N_dose')
+covs_base = c('Site', 'Study_time', 'VariantClass_new', 'Age_scaled','Symptom_onset','N_dose')
 
 ############################################################################
-load('Rout/model_settings_bootstraps.RData') # change here for ineffective drugs
+load('Rout/model_settings_bootstraps_sampling_fq.RData') # change here for ineffective drugs
 
 Max_job = nrow(model_settings)
 
-for(job_i in 1:Max_job){
 if(job_i > Max_job) stop('no model setting corresponding to job ID')
 
 writeLines('Doing the following job:')
@@ -32,14 +32,18 @@ mod = stan_model(file = as.character(model_settings$mod[job_i])) # compile
 platcov_dat_analysis <- data_list[[model_settings$data_ID[job_i]]]
 Dmax = model_settings$Dmax[job_i]
 
+day_plan = as.character(model_settings$day_plan[job_i])
+day_plan = as.numeric(unlist(str_split(day_plan, ",")))
+
 ref_arm = model_settings$ref_arm[job_i]
 trts = model_settings$intervention[job_i]
 
 platcov_dat_analysis = platcov_dat_analysis %>%
   filter(Trt %in% c(ref_arm, trts), 
-         Timepoint_ID <= Dmax, # timepoint is the day of follow-up
-         Time < Dmax+1, mITT)   %>% # sample has to be taken at most 24 hours after last day
-       
+         Timepoint_ID %in% day_plan,
+         Time < Dmax+1, # sample has to be taken at most 24 hours after last day
+         mITT 
+  ) %>%
   mutate(Trt = factor(Trt, levels=c(ref_arm, trts)),
          Variant = as.factor(Variant),
          Site = as.factor(Site),
@@ -54,8 +58,8 @@ platcov_dat_analysis = platcov_dat_analysis %>%
 
 ## Bootstrap data (by bootstrapping patients)
 ids_boot_trt = sort(sample(x = unique(platcov_dat_analysis[platcov_dat_analysis$Trt == trts,]$ID), 
-                       size = 50, #length(unique(platcov_dat_analysis$ID)),
-                       replace = T))
+                           size = 50, #length(unique(platcov_dat_analysis$ID)),
+                           replace = T))
 ids_boot_ref = sort(sample(x = unique(platcov_dat_analysis[platcov_dat_analysis$Trt == ref_arm,]$ID), 
                            size = 50, #length(unique(platcov_dat_analysis$ID)),
                            replace = T))
@@ -68,6 +72,11 @@ platcov_dat_analysis  = platcov_dat_analysis %>%
   uncount(weights = ntimes, .id = 'ID_boot')
 
 platcov_dat_analysis$ID = apply(platcov_dat_analysis[, c('ID','ID_boot')],1,function(x) paste(x,collapse = '_'))
+
+platcov_dat_analysis <- platcov_dat_analysis %>% 
+  group_by(ID, Timepoint_ID) %>%
+  slice_sample(n = model_settings$n_daily_swabs[job_i])
+
 platcov_dat_analysis = platcov_dat_analysis %>%
   arrange(ID, Time) %>%
   arrange(log10_viral_load==log10_cens_vl) 
@@ -109,7 +118,8 @@ out = sampling(mod,
                pars=c('trt_effect'), # only save trt effect parameter 
                include=T)
 
-save(out, file = paste0('Rout/02_Rout_bootstraps_analysis/model_fits_bootstraps_',job_i,'.RData'))# save output # change here for ineffective drugs
+
+save(out, file = paste0('Rout/03_Rout_bootstraps_analysis_sampling_fq/model_fits_bootstraps_fq',job_i,'.RData'))# save output # change here for ineffective drugs
 
 writeLines('Finished job')
 }

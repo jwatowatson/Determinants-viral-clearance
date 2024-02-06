@@ -13,7 +13,7 @@ library(dplyr)
 source('functions.R')
 source('priors.R')
 
-#load('../Rout/model_settings_all_analysis.RData')
+load('Rout/model_run_setup_Unblinded_meta.RData')
 
 Max_job = nrow(model_settings)
 
@@ -83,7 +83,7 @@ out = sampling(mod,
                include=FALSE)
 
 
-save(out, file = paste0('Rout/01 Rout temporal_splines_analysis/model_fits_',job_i,'.RData'))# save output
+save(out, file = paste0('Rout/01_Rout_temporal_splines_analysis_epoch/model_fits_',job_i,'.RData'))# save output
 
 writeLines('Finished job')
 

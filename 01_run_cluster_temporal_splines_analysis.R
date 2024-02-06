@@ -81,7 +81,7 @@ Max_job = nrow(model_settings)
                  include=FALSE)
   
   
-  save(out, file = paste0('Rout/01_Rout_temporal_splines_analysis/model_fits_',job_i,'.RData'))# save output
+  save(out, file = paste0('Rout/01_Rout_temporal_splines_analysis_epoch/model_fits_',job_i,'.RData'))# save output
   
   writeLines('Finished job')
 

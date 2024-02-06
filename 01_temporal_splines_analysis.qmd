@@ -114,6 +114,21 @@ platcov_dat = platcov_dat %>% ungroup() %>%
   ungroup() %>%
   mutate(trt_color = brewer.pal(name = 'Dark2',8)[c(1,7)][as.numeric(Trt)]) 
 
+
+Epochs <- seq.Date(as.Date(min(platcov_dat$Rand_date)), as.Date(max(platcov_dat$Rand_date)), "3 month")
+
+platcov_dat$Epoch = 0
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[2])] = 1 #"2021-12-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[3])] = 2 #"2022-03-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[4])] = 3 #"2022-06-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[5])] = 4 #"2022-09-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[6])] = 5 #"2022-12-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[7])] = 6 #"2023-03-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[8])] = 7 #"2023-06-29"
+platcov_dat$Epoch[platcov_dat$Rand_date > as.Date(Epochs[9])] = 8 #"2023-09-29"
+
+platcov_dat$Epoch <- as.factor(platcov_dat$Epoch)
+
 Baseline_data = platcov_dat %>% ungroup() %>% 
   distinct(ID, .keep_all = T) %>%
   filter(Timepoint_ID==0) %>% 
@@ -156,7 +171,7 @@ tab.ff
 source('priors.R')
 
 covs_base = c('Site') #'Study_time'
-covs_full=c(covs_base, 'Age_scaled','Symptom_onset','N_dose')
+covs_full=c(covs_base, 'Age_scaled','Symptom_onset','N_dose','Sex')
 
 # Analysis data
 platcov_dat_analysis_list = list()
@@ -188,24 +203,24 @@ stan_inputs[[i]] =
                    int_covs_full = covs_full,
                    slope_covs_base = covs_base,
                    slope_covs_full = covs_full,
-                   trt_frmla = formula('~ Trt'),
+                   trt_frmla = formula('~ Trt * Epoch - Epoch'), #'~ Trt'
                    Dmax = Dmax[i])
   
 }
 ```
 
 ```{r setup_models}
-all_mods = c("Stan_models/Temporal_spline_mod2_w_slope.stan",
-             "Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan")
+all_mods = c("Stan_models/Temporal_spline_proportional.stan",
+             "Stan_models/Temporal_spline_additive.stan")
 
 model_settings = expand.grid(mod = all_mods,
                              prior = 1:2,
                              cov_matrices = 1:2, 
                             # dataset = 1:2,
                              Dmax = Dmax,
-                             num_knots_alpha = 10,
+                             num_knots_alpha = 20,
                              spline_degree_alpha = 4,
-                             num_knots_beta = 10,
+                             num_knots_beta = 20,
                              spline_degree_beta = 4)
 
 model_settings$dataset <- 1
@@ -566,7 +581,7 @@ resDir <- "Rout/01_Rout_temporal_splines_analysis"
 list_files <- list.files(resDir)
 
 dmax <- 8 #5.5 8
-mod <- "Stan_models/Temporal_spline_mod2_w_slope.stan" # "Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan" #" #
+mod <- "Stan_models/Temporal_spline_proportional.stan" # "Stan_models
 cov <- 2 #2
 prior <- 1 #2
 
@@ -594,7 +609,7 @@ slope_ALL <- matrix(NA, ncol = n_id, nrow = 2000)
 slope_trt <- matrix(NA, ncol = n_id, nrow = 2000)
   
 
-if(mod == "Stan_models/Temporal_spline_mod2_w_slope.stan") {
+if(mod == "Stan_models/Temporal_spline_proportional.stan") {
   for (j in 1:n_id) {
     slope_ALL[, j]  <-
       post_beta_hat[, j] * exp(post_trt_slope[, ind_start[j]] +  post_trt_theta_rand_id[, j, 2] +  post_trt_beta_cov[, ind_start[j]])
@@ -856,10 +871,6 @@ writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate
 ```
 
 ```{r}
-
-```
-
-```{r}
 ind_tab <- slope_trt_for_summarize$data %>%
   mutate(r_number = row_number()) %>%
   group_by(Trt) %>%
@@ -967,6 +978,99 @@ G4
 ```{r}
 png("Plots/Meta_analysis.png", width = 6, height = 5, units = "in", res = 350)
 G4
+dev.off()
+```
+
+# Plot covariate effects on slope and intercept
+
+```{r}
+#Extract slope coefficients
+slope_coefs <- rstan::extract(out, "slope_coefs")
+slope_coefs_summary <- as.data.frame(t(apply(slope_coefs$slope_coefs, 2, quantile, c(0.025, 0.5, 0.975))))
+colnames(slope_coefs_summary) <- c("Low", "Med", "Up")
+
+#Extract intercept coefficients
+intercept_coefs <- rstan::extract(out, "intercept_coefs")
+intercept_coefs_summary <- as.data.frame(t(apply(intercept_coefs$intercept_coefs, 2, quantile, c(0.025, 0.5, 0.975))))
+colnames(intercept_coefs_summary) <- c("Low", "Med", "Up")
+
+#Extract covariate names
+cov_names <- colnames(stan_inputs[[model_settings$dataset[ind_res]]]$cov_matrices$X_slope[[cov]])
+
+slope_coefs_summary$cov <- cov_names
+intercept_coefs_summary$cov <- cov_names
+
+slope_coefs_summary$type <- "Slope"
+intercept_coefs_summary$type <- "Intercept"
+
+coefs_summary <- rbind(slope_coefs_summary, intercept_coefs_summary)
+coefs_summary <- coefs_summary[-grep("Site", coefs_summary$cov), ]
+
+coefs_summary$cov <- as.factor(coefs_summary$cov)
+```
+
+```{r}
+#Back transforming age effects (from SD-wise to 10-year-wise)
+sd_age <- platcov_dat_analysis_list[[model_settings$dataset[[ind_res]]]]$SD_age[1]
+
+coefs_summary[coefs_summary$cov == "Age_scaled",]
+coefs_summary[coefs_summary$cov == "Age_scaled",1:3] <- coefs_summary[coefs_summary$cov == "Age_scaled",1:3] * 10 /sd_age
+
+levels(coefs_summary$cov) <- c("Increased age \nof 10 years", "1 additional \nvaccine dose", "Male", "1 additional day \nsince symptom onset")
+
+#Exponentiate coefficient for slope
+coefs_summary[coefs_summary$type == "Slope", 1:3] <- formatter(exp(coefs_summary[coefs_summary$type == "Slope", 1:3]))
+
+#Exponentiate coefficient for intercept
+coefs_summary[coefs_summary$type == "Intercept", 1:3] <- formatter(10^(coefs_summary[coefs_summary$type == "Intercept", 1:3]))
+```
+
+```{r}
+G_cov1 <- ggplot(coefs_summary[coefs_summary$type == "Slope",]) +
+  geom_point(aes(x = cov, y = Med), size = 3.5, alpha = 0.75, col = "#1D2B53") +
+  geom_errorbar(aes(x = cov, ymin = Low, ymax = Up), width = 0, alpha = 0.75, linewidth = 1, col = "#1D2B53") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  #facet_wrap(.~type) +
+  ggtitle("B) Effects on viral clearance rate") +
+  coord_flip() +
+  theme_bw() +
+  xlab("") +
+  ylab("Change in viral clearance rate (%)") +
+  theme(strip.text = element_text(size = 10, face = "bold"),
+        axis.title = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10),
+        legend.position = "bottom",
+        panel.spacing = unit(1, "lines")) +
+  ylim(-12, 12)
+G_cov1
+
+```
+
+```{r}
+G_cov2 <- ggplot(coefs_summary[coefs_summary$type == "Intercept",]) +
+  geom_point(aes(x = cov, y = Med), size = 3.5, alpha = 0.75, col = "#1D2B53") +
+  geom_errorbar(aes(x = cov, ymin = Low, ymax = Up), width = 0, alpha = 0.75, linewidth = 1, col = "#1D2B53") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  #facet_wrap(.~type) +
+  ggtitle("A) Effects on baseline viral density") +
+  coord_flip() +
+  theme_bw() +
+  xlab("") +
+  ylab("Change in baseline viral density (%)") +
+  theme(strip.text = element_text(size = 10, face = "bold"),
+        axis.title = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10),
+        legend.position = "bottom",
+        panel.spacing = unit(1, "lines")) +
+  ylim(-120, 120)
+G_cov2
+```
+
+```{r}
+png("Plots/Covariates.png", width = 10, height = 4, units = "in", res = 350)
+ggarrange(G_cov2, G_cov1)
 dev.off()
 ```
 
