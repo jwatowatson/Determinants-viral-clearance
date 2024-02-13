@@ -9,7 +9,7 @@ editor: visual
 knitr::opts_chunk$set(cache = T, cache.comments = FALSE,
                       echo = F, include = TRUE, 
                       fig.width = 8, fig.height = 8,
-                      fig.pos = 'H',dev = 'png', dpi = 300)
+                      fig.pos = 'H',dev = 'pdf', dpi = 300)
 
 ```
 
@@ -217,7 +217,9 @@ for(i in 1:length(unique_contrast)){
 ggplot() +
   geom_boxplot(data = data_plot_all, aes(x = day_plan, y = z_score, fill = n_daily_swabs), 
                position  = position_dodge(width = 0.65),
-               width = 0.5, alpha = 0.75, linewidth = 0.55,
+               width = 0.5, alpha = 0.75, linewidth = 0.4,
+               outlier.shape = 1, outlier.color = "#424769", outlier.alpha = 0.7,
+               outlier.size = 0.9, outlier.stroke = 0.6,
                color = "#424769") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.55) +
   theme_bw() +
@@ -226,10 +228,10 @@ ggplot() +
   xlab("") +
   ylab("") +
   ggtitle(lab) +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9),
-        axis.text = element_text(size = 8),
-        plot.tag.position = c(0.175,0.99),
-        plot.tag = element_text(size = 9, face = "bold")) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+        axis.text = element_text(size = 10),
+        plot.tag.position = c(0.14,0.98),
+        plot.tag = element_text(size = 11, face = "bold")) +
   labs(tag = tag)
   
 }
@@ -240,6 +242,11 @@ G
 
 ```{r}
 png("Plots/z_scores_sampling_fq.png", width = 10, height = 6.5, units = "in", res = 350)
+annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 1.2, fontface="bold")),
+                bottom = textGrob("Sampling schedule", gp = gpar(cex = 1.2, fontface="bold")))
+dev.off()
+
+pdf("Plots/PDF/z_scores_sampling_fq.pdf", width = 10, height = 6.5)
 annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 1.2, fontface="bold")),
                 bottom = textGrob("Sampling schedule", gp = gpar(cex = 1.2, fontface="bold")))
 dev.off()

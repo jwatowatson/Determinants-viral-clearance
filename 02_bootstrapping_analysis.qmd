@@ -9,7 +9,7 @@ editor: visual
 knitr::opts_chunk$set(cache = T, cache.comments = FALSE,
                       echo = F, include = TRUE, 
                       fig.width = 8, fig.height = 8,
-                      fig.pos = 'H',dev = 'png', dpi = 300)
+                      fig.pos = 'H',dev = 'pdf', dpi = 300)
 
 ```
 
@@ -142,6 +142,8 @@ results <- cbind(model_settings, res)
 results$contrasts <- paste0(results$intervention, results$ref_arm, results$data_ID)
 unique_contrast <- unique(results$contrasts)
 
+print(paste0("Proportion of converged iterations: ", sum(results$Rhat < 1.015)/nrow(results)))
+
 results <- results[results$Rhat < 1.015,]
 ```
 
@@ -167,20 +169,9 @@ for(i in 1:length(unique_contrast)){
   ref_arm <- data_plot_all$ref_arm[1]
   
   data_ID <- data_plot_all$data_ID[1]
-
-  # dat_patients <- data_list[[data_ID]] %>%
-  # filter(Trt %in% c(ref_arm, intervention),
-  #        mITT)
   
   if(intervention == "Nirmatrelvir + Ritonavir"){intervention <- "Nirmatrelvir"}
   if(intervention == "Regeneron"){intervention <- "Casirivimab/imdevimab"}
-
-  # number_table <- table(unique(dat_patients[,c("ID", "Trt")])$Trt)
-  # names(number_table)[names(number_table) == "Nirmatrelvir + Ritonavir"] <- "Nirmatrelvir"
-  # names(number_table)[names(number_table) == "Regeneron"] <- "Casirivimab/imdevimab"
-  
-  # lab_intervention <- paste0(names(number_table)[ names(number_table) == intervention], ": ", (number_table)[names(number_table) == intervention])
-  # lab_refarm <- paste0(names(number_table)[ names(number_table) == ref_arm], ": ", (number_table)[names(number_table) == ref_arm])
   
   if(intervention == "Nirmatrelvir" & data_plot_all$data_ID[1] == 2 &
      ref_arm == "No study drug"){ref_arm <- "No study drug (before Feb 2023)"}
@@ -193,27 +184,6 @@ for(i in 1:length(unique_contrast)){
   tag <- tags[i]
   
  plot_list[[i]] <-
-  
-  # ggplot() +
-  #   geom_jitter(data = data_plot_all, aes(x = Dmax, y = z_score), width = 0.15, size = 1.2, shape = 1,
-  #               stroke =1, col = "#7D7C7C", alpha = 0.5) +
-  #   geom_vline(xintercept = day_max_z, linetype = "dashed", linewidth = 0.55) +
-  #   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.55) +
-  #   geom_line(data = data_plot_median,  aes(x = Dmax, y = med_z),
-  #             col = "red", linewidth = 0.9) +
-  #   geom_point(data = data_plot_median,  aes(x = Dmax, y = med_z), size = 3, shape = 21,
-  #              stroke = 1, col = "white", fill = "red") +
-  #   theme_bw() +
-  #   scale_x_continuous(breaks = seq(2,14,2), minor_breaks = 2:14) +
-  #   scale_y_continuous(breaks = seq(-2,10,2), limits = c(-2,10)) +
-  #   xlab("") +
-  #   ylab("") +
-  #   ggtitle(lab) +
-  #   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9),
-  #         axis.text = element_text(size = 8),
-  #         plot.tag.position = c(0.175,0.99),
-  #         plot.tag = element_text(size = 9, face = "bold")) +
-  #   labs(tag = tag) 
  ggplot() +
   geom_vline(xintercept = day_max_z, linetype = "dashed", linewidth = 0.5,
              col = "#FF004D") +
@@ -223,22 +193,22 @@ for(i in 1:length(unique_contrast)){
                outlier.size = 0.9, outlier.stroke = 0.6,
                coef = 1, color = "#424769",
                fill = "#424769", alpha = 0.25, width = 0.6,
-               linewidth = 0.55) +
+               linewidth = 0.4) +
   geom_line(data = data_plot_median,  aes(x = Dmax, y = med_z),
             col = "red", linewidth = 0.7) +
 
   geom_point(data = data_plot_median,  aes(x = Dmax, y = med_z), size = 2.75, shape = 24,
-             stroke = 0.6, col = "white", fill = "red") +
+             stroke = 0.3, col = "white", fill = "red") +
   theme_bw() +
-  scale_x_continuous(breaks = seq(2,14,1), minor_breaks = 2:14) +
-  scale_y_continuous(breaks = seq(-2,10,2), limits = c(-2,10)) +
+  scale_x_continuous(breaks = seq(2,14,2), minor_breaks = seq(2,14,2)) +
+  scale_y_continuous(breaks = seq(-2,10,4), limits = c(-2,10)) +
   xlab("") +
   ylab("") +
   ggtitle(lab) +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9),
-        axis.text = element_text(size = 8),
-        plot.tag.position = c(0.175,0.95),
-        plot.tag = element_text(size = 10, face = "bold")) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 11),
+        axis.text = element_text(size = 10),
+        plot.tag.position = c(0.14,0.98),
+        plot.tag = element_text(size = 11, face = "bold")) +
   labs(tag = tag) 
   
   
@@ -249,8 +219,14 @@ G
 ```
 
 ```{r}
-png("Plots/z_scores.png", width = 10, height = 6.5, units = "in", res = 350)
+# png("Plots/z_scores.png", width = 10, height = 6.5, units = "in", res = 350)
+# annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 1.2, fontface="bold")),
+#                 bottom = textGrob("Days follow-up included", gp = gpar(cex = 1.2, fontface="bold")))
+# dev.off()
+
+pdf("Plots/PDF/z_scores.pdf", width = 10, height = 6.5)
 annotate_figure(G, left = textGrob("Z-score", rot = 90, vjust = 0.5, gp = gpar(cex = 1.2, fontface="bold")),
                 bottom = textGrob("Days follow-up included", gp = gpar(cex = 1.2, fontface="bold")))
 dev.off()
+
 ```

@@ -246,7 +246,8 @@ make_stan_inputs = function(input_data_fit,
           analysis_data_stan$log10_cens_vl[(1+analysis_data_stan$N_obs):analysis_data_stan$Ntot])
   
   Trt_matrix = model.matrix(trt_frmla, data = input_data_fit)
-  Trt_matrix[,1]=0 # first column is dummy
+  ref_arm <- levels(input_data_fit$Trt)[1]
+  Trt_matrix[,c(1,grep(ref_arm, colnames(Trt_matrix)))]=0 # first column is dummy
   
   analysis_inputs = list(cov_matrices=cov_matrices,
                          analysis_data_stan=analysis_data_stan,
@@ -760,6 +761,25 @@ set_trt_matrices_counterfactual = function(analysis_data_stan, tt, counterfactua
   
   analysis_data_stan
 }
+
+back_transfrom_date <- function(platcov_dat, scaled_time){
+  mean_time <- mean(platcov_dat$Study_time_normal)
+  sd_time <- sd(platcov_dat$Study_time_normal)
+  min_date <- as.numeric(min(as.Date(platcov_dat$Rand_date)))
+  backward_time <- (scaled_time * sd_time) + mean_time
+  date <- as.POSIXct.Date(backward_time * 7 + min_date)
+  return(date)
+}
+
+#######################################
+slope_to_hl  <- function(slope){
+  24*log10(2)/(-(slope)) 
+}
+#######################################
+formatter <- function(x){ 
+  (x-1)*100 
+}
+
 
 checkStrict(set_trt_matrices_counterfactual)
 
