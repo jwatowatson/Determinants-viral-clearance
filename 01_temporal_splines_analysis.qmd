@@ -205,7 +205,7 @@ G_missing <- ggplot(missing_dat_plot, aes(x = as.factor(Timepoint_ID), y = Trt, 
   xlab("Time since randomisation (days)") +
   ylab("") +
   ggtitle("Percentage of missing data") +
-  theme(axis.text = element_text(size = 10),
+  theme(axis.text = element_text(size = 11),
         axis.title = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 14, face = "bold"),
         panel.spacing = unit(1, "lines")) 
@@ -213,26 +213,37 @@ G_missing
 ```
 
 ```{r}
-# png("Plots/missing_data.png", width = 8, height = 5, units = "in", res = 400)
-# G_missing
-# dev.off()
+png("Plots/missing_data.png", width = 8, height = 5, units = "in", res = 400)
+G_missing
+dev.off()
 
 pdf("Plots/PDF/missing_data.pdf", width = 8, height = 5)
 G_missing
 dev.off()
 ```
 
+## Vaccines
+
+```{r}
+table(Baseline_data[Baseline_data$mITT,]$Fully_vaccination_yn, useNA = "always")
+table(Baseline_data[Baseline_data$mITT,]$Any_dose, useNA = "always")
+```
+
 ## Vaccine over time
 
 ```{r}
-Baseline_data$vac_dose_gr <- "More than 2 doses"
+Baseline_data$vac_dose_gr <- NA 
+Baseline_data$vac_dose_gr[Baseline_data$N_dose > 3] <- "More than 3doses"
+Baseline_data$vac_dose_gr[Baseline_data$N_dose == 3] <- "3 doses"
 Baseline_data$vac_dose_gr[Baseline_data$N_dose == 2] <- "2 doses"
 Baseline_data$vac_dose_gr[Baseline_data$N_dose == 1] <- "1 dose"
 Baseline_data$vac_dose_gr[Baseline_data$N_dose == 0] <- "0 dose"
 Baseline_data$vac_dose_gr <- as.factor(Baseline_data$vac_dose_gr)
+Baseline_data$vac_dose_gr <- factor(Baseline_data$vac_dose_gr, levels = rev(levels(Baseline_data$vac_dose_gr )))
 #levels(Baseline_data$vac_dose_gr)
 
-Baseline_data$mrna_gr <- "More than 2 mRNA vaccine doses"
+Baseline_data$mrna_gr <- NA 
+Baseline_data$mrna_gr[Baseline_data$N_dose_mRNA > 2] <- "More than 2 mRNA vaccine doses"
 Baseline_data$mrna_gr[Baseline_data$N_dose_mRNA == 2] <- "2 mRNA vaccine doses"
 Baseline_data$mrna_gr[Baseline_data$N_dose_mRNA == 1] <- "1 mRNA vaccine dose"
 Baseline_data$mrna_gr[Baseline_data$N_dose_mRNA == 0] <- "0 mRNA vaccine dose"
@@ -240,35 +251,38 @@ Baseline_data$mrna_gr <- as.factor(Baseline_data$mrna_gr)
 Baseline_data$mrna_gr <- factor(Baseline_data$mrna_gr, levels =   rev(levels(Baseline_data$mrna_gr)))
 
 vaccine_lab <- Baseline_data %>%
-  group_by(vac_dose_gr, mrna_gr) %>%
+  group_by(vac_dose_gr) %>%
   summarise("lab" = paste0("n = ", n()))
 
 G_vaccine <- ggplot(Baseline_data) +
-  geom_jitter(aes(x = as.Date(Rand_date), y = mrna_gr, col = Time_since_last_dose#, shape = as.factor(time_vac_type)
+  geom_jitter(aes(x = as.Date(Rand_date), y = vac_dose_gr, col = Time_since_last_dose#, shape = as.factor(time_vac_type)
                   ),
-              size = 3, alpha = 0.85, height = 0.05)  +
+              size = 3, alpha = 0.65, height = 0.07)  +
   geom_vline(xintercept = seq.Date(as.Date("2022-01-01"), as.Date("2024-01-01"), "12 months"), col = "red", linetype = "dashed") +
   scale_colour_viridis_c(name = "Time since last vaccination (days)") +
   scale_shape_manual(values = c(17, 16), guide = "none") +
   theme_bw() +
   xlab("Randomisation date") +
   ylab("") +
-  facet_grid(vac_dose_gr~.,scales="free", space="free") +
-  theme(axis.text = element_text(size = 10),
+ # facet_grid(vac_dose_gr~.,scales="free", space="free") +
+  theme(axis.text = element_text(size = 11),
         axis.title = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 14, face = "bold"),
         panel.spacing = unit(1, "lines"),
         legend.position = "bottom") +
-  geom_text(data = vaccine_lab, aes(x = as.Date("2021-05-01"), y = mrna_gr,
+  geom_text(data = vaccine_lab, aes(x = as.Date("2021-05-01"), y = vac_dose_gr,
                                     label = lab), hjust = 0)
-
+G_vaccine
 ```
 
 ```{r}
-png(("Plots/Vaccine_over_time.png"), width = 10, height = 6, units = "in", res = 400)
+png(("Plots/Vaccine_over_time.png"), width = 8, height = 5, units = "in", res = 400)
 G_vaccine
 dev.off()
 
+pdf(("Plots/PDF/Vaccine_over_time.pdf"), width = 8, height = 5)
+G_vaccine
+dev.off()
 
 ```
 
@@ -368,14 +382,6 @@ ff = list.files('Rout/01_Rout_temporal_splines_analysis')
 ff = paste0('Rout/01_Rout_temporal_splines_analysis/',ff)
 ```
 
-## main model selection
-
-```{r}
-# main_mod = which(model_settings$prior==1&
-#                    model_settings$cov_matrices==1&
-#                    model_settings$mod==all_mods[1])
-```
-
 # Baseline viral load dynamics
 
 ### GAM mod 1: Baseline viral loads vs Time
@@ -402,7 +408,7 @@ Gr_mod1 <- pred_mod1 %>%
   theme_bw() +
   xlab("Randomisation date") +
   ylab("Time since symptomp onset (days)") +
-  theme(strip.text = element_text(size = 10, face = "bold"),
+  theme(axis.text = element_text(size = 11, face = "bold"),
         axis.title = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 14, face = "bold"),
         panel.spacing = unit(1, "lines"),
@@ -421,9 +427,9 @@ print(Gr_mod1)
 ```
 
 ```{r}
-# png("Plots/Figx_baseline_viral_loads.png", width = 8, height = 6, units = "in", res = 400)
-# Gr_mod1
-# dev.off()
+png("Plots/Figx_baseline_viral_loads.png", width = 8, height = 6, units = "in", res = 400)
+Gr_mod1
+dev.off()
 
 pdf("Plots/PDF/Figx_baseline_viral_loads.pdf", width = 8, height = 6)
 Gr_mod1
@@ -460,8 +466,10 @@ Gr_mod2 <- pred_mod2 %>%
   theme_bw() +
   xlab("Time since symptom onset (days)") +
   ylab("Baseline SARS-CoV-2 genomes/mL") +
-  theme(axis.title = element_text(size = 10, face = "bold"),
-        axis.text = element_text(size = 8)) +
+  ggtitle("A") +
+  theme(axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 13, face = "bold")) +
   scale_y_continuous(labels=label_math(), breaks = seq(0,9,2))
 
 Gr_mod2
@@ -513,8 +521,10 @@ Gr_mod3 <- pred_mod3 %>%
   theme_bw() +
   xlab("Randomisation date") +
   ylab("Time since symptom onset (days)") +
-  theme(axis.title = element_text(size = 10, face = "bold"),
-        axis.text = element_text(size = 8)) 
+  ggtitle("B") +
+  theme(axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10),
+        plot.title = element_text(size = 13, face = "bold")) 
 
 Gr_mod3
 ```
@@ -552,11 +562,12 @@ levels(Baseline_vl_data_Plot$Symptom_onset_round)  <- c("1 day", "2 days", "3 da
 
 mycolors <-  c("#E41A1C", "#377EB8", "#4DAF4A", "black", "#984EA3", "#FF8400", "#2B3499", "#E95793", "#999999")
 
+pred_mod4$Rand_date <- as.Date(pred_mod4$Rand_date)
 
 Gr_mod4 <-pred_mod4 %>%
   ggplot(aes(Rand_date, fit)) +
   geom_point(data = Baseline_vl_data_Plot, 
-             aes(x = Rand_date, y = Baseline.viral.load, col = VariantClass_new, alpha = VariantClass_new),
+             aes(x = as.Date(Rand_date), y = Baseline.viral.load, col = VariantClass_new, alpha = VariantClass_new),
              size = 2) +
   scale_color_manual(values = mycolors, name = "Variants") +
   facet_wrap(.~ Symptom_onset_round, ncol = 4) +
@@ -567,32 +578,37 @@ Gr_mod4 <-pred_mod4 %>%
   theme_bw() +
   xlab("Randomisation date") +
   ylab("Baseline SARS-CoV-2 genomes/mL") +
-  theme(axis.title = element_text(size = 10, face = "bold"),
-        axis.text = element_text(size = 8),
+  theme(axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10),
         legend.position = "bottom",
-        strip.text = element_text(size = 8),
-        plot.title = element_text(size = 11, face = "bold")) +
+        strip.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 13, face = "bold")) +
   scale_alpha_manual(values = rep(0.6, length(vars)), guide = "none") +
-  ggtitle("Temporal dynamics of baseline viral densities by time since symptom onset") +
-  scale_y_continuous(labels=label_math(), breaks = seq(0,9,2)) 
+  ggtitle("C Temporal dynamics of baseline viral densities by time since symptom onset") +
+  scale_y_continuous(labels=label_math(), breaks = seq(0,9,2)) +
+  scale_x_date(date_labels = "%b-%y")
 
 Gr_mod4
 ```
 
 ```{r}
-Gr_mgcv <- ggarrange(ggarrange(Gr_mod2, NULL, Gr_mod3, ncol = 3, labels = c("A","", "B"), align = "hv", widths = c(1,0.05,1)),
+Gr_mgcv <- ggarrange(ggarrange(Gr_mod2, NULL, Gr_mod3, ncol = 3, 
+                               #labels = c("A","", "B"), 
+                               align = "hv", widths = c(1,0.05,1)),
                NULL,
                Gr_mod4,
-               nrow = 3, labels = c("", "", "C"), heights = c(1, 0.1, 1.2)
+               nrow = 3, 
+              # labels = c("", "", "C"), 
+               heights = c(1, 0.1, 1.2)
 )
 
 Gr_mgcv
 ```
 
 ```{r}
-# png("Plots/Figx_onset_dynamics_all.png", width = 10, height = 8, units = "in", res = 350)
-# print(Gr_mgcv)
-# dev.off()
+png("Plots/Figx_onset_dynamics_all.png", width = 10, height = 8, units = "in", res = 350)
+print(Gr_mgcv)
+dev.off()
 
 pdf("Plots/PDF/Figx_onset_dynamics_all.pdf", width = 10, height = 8)
 print(Gr_mgcv)
@@ -776,9 +792,9 @@ Sp_all
 ```
 
 ```{r}
-# png(paste0("Plots/slope_by_time_", max, ".png"), width = 8, height = 6, units = "in", res = 400)
-# Sp_all
-# dev.off()
+png(paste0("Plots/slope_by_time_", max, ".png"), width = 8, height = 6, units = "in", res = 400)
+Sp_all
+dev.off()
 
 pdf(paste0("Plots/PDF/slope_by_time_", max, ".pdf"), width = 8, height = 6)
 Sp_all
@@ -866,9 +882,9 @@ GG2
 ```
 
 ```{r}
-# png(paste0("Plots/slope_by_time_trt_", max, ".png"), width = 10, height = 6, units = "in", res = 350)
-# GG2
-# dev.off()
+png(paste0("Plots/slope_by_time_trt_", max, ".png"), width = 10, height = 6, units = "in", res = 350)
+GG2
+dev.off()
 
 pdf(paste0("Plots/PDF/slope_by_time_trt_", max, ".pdf"), width = 10, height = 6)
 GG2
@@ -893,10 +909,11 @@ G_hl_trend <- ggplot() +
              size = 2.5) +
   geom_errorbar(data = data_for_plot_slope[data_for_plot_slope$Trt %in% c("No study drug", "Ivermectin", "Remdesivir") , ],
                 aes(x = Rand_date, ymin = slope_to_hl(slope_low), ymax =  slope_to_hl(slope_up), 
-                    col = VariantClass_new,
-                    alpha = VariantClass_new),
+                    col = VariantClass_new
+                    ),
                     width = 0,
-                    linewidth = 0.2) +
+                    linewidth = 0.2,
+                alpha = 0.3) +
   geom_ribbon(data = data_for_plot_slope, aes(x = Rand_date, ymax = slope_to_hl(beta_hat_low), 
                                               ymin =  slope_to_hl(beta_hat_up)), fill ="black",
               alpha = 0.2) +
@@ -909,6 +926,7 @@ G_hl_trend <- ggplot() +
   geom_hline(yintercept = 0, linetype = "dashed") +
   theme(strip.text = element_text(size = 10, face = "bold"),
         axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 11),
         plot.title = element_text(size = 12, face = "bold"),
         legend.position = "bottom",
         panel.spacing = unit(1, "lines")) +
@@ -924,9 +942,9 @@ G_hl_trend
 ```
 
 ```{r}
-# png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 7, height = 6, units = "in", res = 350)
-# G_hl_trend
-# dev.off()
+png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 7, height = 6, units = "in", res = 350)
+G_hl_trend
+dev.off()
 
 
 pdf(paste0("Plots/PDF/hl_by_time_var_", max, ".pdf"), width = 7, height = 6)
@@ -1350,9 +1368,10 @@ G_variants <- ggplot(trt_effect_summarize_int[trt_effect_summarize_int$Available
   geom_vline(xintercept = 0, linetype = "dashed", col = "red") +
   xlab("Change in viral clearance rate (%)") +
   ylab("") +
-  theme(strip.text = element_text(size = 10, face = "bold"),
+  theme(strip.text = element_text(size = 12, face = "bold"),
         axis.title = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 10),
         panel.spacing = unit(1, "lines")) +
   geom_text(aes(y = Variant, label = lab), x = -200, hjust  = 0, size = 4) +
   coord_cartesian(xlim=c(-200, 410))
