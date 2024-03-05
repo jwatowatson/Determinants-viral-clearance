@@ -965,34 +965,43 @@ ind_tab <- slope_trt_for_summarize$data %>%
 
 #######################################
 #No study drug
-slope_before <- median(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],])
+slope_before <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],],
+                         c(0.25, 0.5, 0.75))
 
-slope_after <- median(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],])
+slope_after <- quantile(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],], c(0.25, 0.5,0.75))
 
 relative_NSD <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],])/
                    slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],]),
                    c(0.025, 0.5, 0.975)))
 
 #Nirmatrelvir
-slope_before_NMT <- median(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])
-slope_after_NMT <- median(slope_trt_for_summarize$slope[ind_tab$max[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])
+slope_before_NMT <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],], c(0.25, 0.5, 0.75))
+slope_after_NMT <- quantile(slope_trt_for_summarize$slope[ind_tab$max[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],], c(0.25, 0.5, 0.75))
 
 relative_NMT <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])/
                    slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],]),
                    c(0.025, 0.5, 0.975)))
 #######################################
-writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)\n\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)',
-               round(slope_before,2),
-               round(slope_to_hl(slope_before),1),
-               round(slope_after,2),
-               round(slope_to_hl(slope_after),1),
+writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)\n\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)',
+               round(slope_before[2],2),
+               round(slope_to_hl(slope_before[2]),1),
+               round(slope_to_hl(slope_before[1]),1),
+               round(slope_to_hl(slope_before[3]),1),
+               round(slope_after[2],2),
+               round(slope_to_hl(slope_after[2]),1),
+               round(slope_to_hl(slope_after[1]),1),
+              round(slope_to_hl(slope_after[3]),1),
                round(relative_NSD[2],1),
                round(relative_NSD[1],1),
                round(relative_NSD[3],1),
-               round(slope_before_NMT,2),
-               round(slope_to_hl(slope_before_NMT),1),
-               round(slope_after_NMT,2),
-               round(slope_to_hl(slope_after_NMT),1),
+               round(slope_before_NMT[2],2),
+               round(slope_to_hl(slope_before_NMT[2]),1),
+               round(slope_to_hl(slope_before_NMT[1]),1),
+               round(slope_to_hl(slope_before_NMT[3]),1),
+               round(slope_after_NMT[2],2),
+               round(slope_to_hl(slope_after_NMT[2]),1),
+               round(slope_to_hl(slope_after_NMT[1]),1),
+               round(slope_to_hl(slope_after_NMT[3]),1),
                round(relative_NMT[2],1),
                round(relative_NMT[1],1),
                round(relative_NMT[3],1)
