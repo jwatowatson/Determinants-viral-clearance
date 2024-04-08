@@ -95,10 +95,6 @@ platcov_dat$VariantClass_new[platcov_dat$VariantClass_new %in% c("BA.5.2", "BA.5
 platcov_dat$VariantClass_new[platcov_dat$VariantClass_new %in% c("BN.1.2", "BN.1.3", "CH.1.1")] <- "BA.2.75"
 platcov_dat$VariantClass_new[platcov_dat$VariantClass_new %in% c("XBB1.5-like with F456L")] <- "XBB.1.5-like"
 platcov_dat$VariantClass_new <- as.factor(platcov_dat$VariantClass_new)
-
-# platcov_dat$VariantClass_new <- factor(platcov_dat$VariantClass_new, levels = c("Delta", "BA.1",  "BA.2" ,"BA.2.75" , "BA.4"  , 
-# "BA.5"   , "XBB"  , "XBB.1.5-like",  "Other" ))
-
 ```
 
 ## Baseline characteristics
@@ -213,13 +209,13 @@ G_missing
 ```
 
 ```{r}
-png("Plots/missing_data.png", width = 8, height = 5, units = "in", res = 400)
-G_missing
-dev.off()
-
-pdf("Plots/PDF/missing_data.pdf", width = 8, height = 5)
-G_missing
-dev.off()
+# png("Plots/missing_data.png", width = 8, height = 5, units = "in", res = 400)
+# G_missing
+# dev.off()
+# 
+# pdf("Plots/PDF/missing_data.pdf", width = 8, height = 5)
+# G_missing
+# dev.off()
 ```
 
 ## Vaccines
@@ -276,13 +272,13 @@ G_vaccine
 ```
 
 ```{r}
-png(("Plots/Vaccine_over_time.png"), width = 8, height = 5, units = "in", res = 400)
-G_vaccine
-dev.off()
-
-pdf(("Plots/PDF/Vaccine_over_time.pdf"), width = 8, height = 5)
-G_vaccine
-dev.off()
+# png(("Plots/Vaccine_over_time.png"), width = 8, height = 5, units = "in", res = 400)
+# G_vaccine
+# dev.off()
+# 
+# pdf(("Plots/PDF/Vaccine_over_time.pdf"), width = 8, height = 5)
+# G_vaccine
+# dev.off()
 
 ```
 
@@ -427,13 +423,13 @@ print(Gr_mod1)
 ```
 
 ```{r}
-png("Plots/Figx_baseline_viral_loads.png", width = 8, height = 6, units = "in", res = 400)
-Gr_mod1
-dev.off()
-
-pdf("Plots/PDF/Figx_baseline_viral_loads.pdf", width = 8, height = 6)
-Gr_mod1
-dev.off()
+# png("Plots/Figx_baseline_viral_loads.png", width = 8, height = 6, units = "in", res = 400)
+# Gr_mod1
+# dev.off()
+# 
+# pdf("Plots/PDF/Figx_baseline_viral_loads.pdf", width = 8, height = 6)
+# Gr_mod1
+# dev.off()
 ```
 
 ### GAM mod 2: Symptom onset vs Baseline viral loads
@@ -606,13 +602,13 @@ Gr_mgcv
 ```
 
 ```{r}
-png("Plots/Figx_onset_dynamics_all.png", width = 10, height = 8, units = "in", res = 350)
-print(Gr_mgcv)
-dev.off()
-
-pdf("Plots/PDF/Figx_onset_dynamics_all.pdf", width = 10, height = 8)
-print(Gr_mgcv)
-dev.off()
+# png("Plots/Figx_onset_dynamics_all.png", width = 10, height = 8, units = "in", res = 350)
+# print(Gr_mgcv)
+# dev.off()
+# 
+# pdf("Plots/PDF/Figx_onset_dynamics_all.pdf", width = 10, height = 8)
+# print(Gr_mgcv)
+# dev.off()
 ```
 
 # Plot dynamics before vs after
@@ -676,9 +672,9 @@ Gr_dynamics
 # Gr_dynamics
 # dev.off()
 
-pdf("Plots/PDF/Figx_dynamics_before_after.pdf", width = 5, height = 5)
-Gr_dynamics
-dev.off()
+# pdf("Plots/PDF/Figx_dynamics_before_after.pdf", width = 5, height = 5)
+# Gr_dynamics
+# dev.off()
 ```
 
 # Splines fit for clearance rate
@@ -792,13 +788,13 @@ Sp_all
 ```
 
 ```{r}
-png(paste0("Plots/slope_by_time_", max, ".png"), width = 8, height = 6, units = "in", res = 400)
-Sp_all
-dev.off()
-
-pdf(paste0("Plots/PDF/slope_by_time_", max, ".pdf"), width = 8, height = 6)
-Sp_all
-dev.off()
+# png(paste0("Plots/slope_by_time_", max, ".png"), width = 8, height = 6, units = "in", res = 400)
+# Sp_all
+# dev.off()
+# 
+# pdf(paste0("Plots/PDF/slope_by_time_", max, ".pdf"), width = 8, height = 6)
+# Sp_all
+# dev.off()
 ```
 
 ### Plotting trend of clearance rate by treatment
@@ -882,13 +878,13 @@ GG2
 ```
 
 ```{r}
-png(paste0("Plots/slope_by_time_trt_", max, ".png"), width = 10, height = 6, units = "in", res = 350)
-GG2
-dev.off()
-
-pdf(paste0("Plots/PDF/slope_by_time_trt_", max, ".pdf"), width = 10, height = 6)
-GG2
-dev.off()
+# png(paste0("Plots/slope_by_time_trt_", max, ".png"), width = 10, height = 6, units = "in", res = 350)
+# GG2
+# dev.off()
+# 
+# pdf(paste0("Plots/PDF/slope_by_time_trt_", max, ".pdf"), width = 10, height = 6)
+# GG2
+# dev.off()
 ```
 
 ```{r}
@@ -942,14 +938,14 @@ G_hl_trend
 ```
 
 ```{r}
-png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 7, height = 6, units = "in", res = 350)
-G_hl_trend
-dev.off()
-
-
-pdf(paste0("Plots/PDF/hl_by_time_var_", max, ".pdf"), width = 7, height = 6)
-G_hl_trend
-dev.off()
+# png(paste0("Plots/hl_by_time_var_", max, ".png"), width = 7, height = 6, units = "in", res = 350)
+# G_hl_trend
+# dev.off()
+# 
+# 
+# pdf(paste0("Plots/PDF/hl_by_time_var_", max, ".pdf"), width = 7, height = 6)
+# G_hl_trend
+# dev.off()
 ```
 
 ### Summarizing population clearance half-life over time
@@ -960,54 +956,70 @@ ind_tab <- slope_trt_for_summarize$data %>%
   group_by(Trt) %>%
   filter(Rand_date != max(Rand_date)) %>%
   summarise(min_index = r_number[which.min(Rand_date)],
-            max_index = r_number[which.max(Rand_date)]) %>%
+            max_index = r_number[which.max(Rand_date)],
+            min_date = as.character(format(min(Rand_date), "%b %Y")),
+            max_date = as.character(format(max(Rand_date),  "%b %Y"))) %>%
   as.data.frame()
 
-#######################################
-#No study drug
-slope_before <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],],
-                         c(0.25, 0.5, 0.75))
+for(i in 1:nrow(ind_tab)){
+  trt_arm <- ind_tab$Trt[i]
+  slope_before <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],],
+                           c(0.25, 0.5, 0.75))
+  slope_after <- quantile(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],], c(0.25, 0.5,0.75))
+  relative_change <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],])/
+                                       slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],]),
+                                     c(0.025, 0.5, 0.975)))
+  ind_tab$slope_before_low[i] <- slope_before[1]
+  ind_tab$slope_before_med[i] <- slope_before[2]
+  ind_tab$slope_before_up[i] <- slope_before[3]
+  ind_tab$slope_after_low[i] <- slope_after[1]
+  ind_tab$slope_after_med[i] <- slope_after[2]
+  ind_tab$slope_after_up[i] <- slope_after[3]
+  ind_tab$hl_before_low[i] <- slope_to_hl(slope_before[1])
+  ind_tab$hl_before_med[i] <- slope_to_hl(slope_before[2])
+  ind_tab$hl_before_up[i] <- slope_to_hl(slope_before[3])
+  ind_tab$hl_after_low[i] <- slope_to_hl(slope_after[1])
+  ind_tab$hl_after_med[i] <- slope_to_hl(slope_after[2])
+  ind_tab$hl_after_up[i] <- slope_to_hl(slope_after[3])
+  ind_tab$relative_change_low[i] <- relative_change[1]
+  ind_tab$relative_change_med[i] <- relative_change[2]
+  ind_tab$relative_change_up[i] <- relative_change[3]
+}
+ind_tab
+```
 
-slope_after <- quantile(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],], c(0.25, 0.5,0.75))
+```{r}
+for(i in 1:nrow(ind_tab)){
+  ind_tab_i <- ind_tab[i,]
+  writeLines(sprintf('%s arm:
+                     Begin: %s; Viral clearance rate = %s log10 genomes per mL per day [IQR: %s to %s]
+                                       Viral clearance half-life = %s h [IQR: %s to %s]
+                     After: %s; Viral clearance rate = %s log10 genomes per mL per day [IQR: %s to %s]
+                                       Viral clearance half-life = %s h [IQR: %s to %s]
+                     Relative change = a decrease of %s%% [95%% CrI %s to %s%%] in half-life',
+                ind_tab_i$Trt,
+                ind_tab_i$min_date,
+                round(ind_tab_i$slope_before_med,2),
+                round(ind_tab_i$slope_before_low,2),
+                round(ind_tab_i$slope_before_up,2),
+                round(ind_tab_i$hl_before_med,1),
+                round(ind_tab_i$hl_before_low,1),
+                round(ind_tab_i$hl_before_up,1),
+                ind_tab_i$max_date,
+                round(ind_tab_i$slope_after_med,2),
+                round(ind_tab_i$slope_after_low,2),
+                round(ind_tab_i$slope_after_up,2),
+                round(ind_tab_i$hl_after_med,1),
+                round(ind_tab_i$hl_after_low,1),
+                round(ind_tab_i$hl_after_up,1),
+                -round(ind_tab_i$relative_change_med),
+                -round(ind_tab_i$relative_change_low),
+                -round(ind_tab_i$relative_change_up)
+  )
+  )
+  
+}
 
-relative_NSD <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "No study drug"],])/
-                   slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "No study drug"],]),
-                   c(0.025, 0.5, 0.975)))
-
-#Nirmatrelvir
-slope_before_NMT <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],], c(0.25, 0.5, 0.75))
-slope_after_NMT <- quantile(slope_trt_for_summarize$slope[ind_tab$max[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],], c(0.25, 0.5, 0.75))
-
-relative_NMT <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],])/
-                   slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == "Nirmatrelvir + Ritonavir"],]),
-                   c(0.025, 0.5, 0.975)))
-#######################################
-writeLines(sprintf('In no study drug arm:\n September 2021: Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)\n\n\nIn nirmatrelvir arm: \n Jun 2022: Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours\n October 2023:  Viral clearance rate = %s log10 units/day; Half-life = %s [IQR: %s to %s] hours (Equilvalent to a decrease of %s%% [%s; %s%%] in half-life)',
-               round(slope_before[2],2),
-               round(slope_to_hl(slope_before[2]),1),
-               round(slope_to_hl(slope_before[1]),1),
-               round(slope_to_hl(slope_before[3]),1),
-               round(slope_after[2],2),
-               round(slope_to_hl(slope_after[2]),1),
-               round(slope_to_hl(slope_after[1]),1),
-              round(slope_to_hl(slope_after[3]),1),
-               round(relative_NSD[2],1),
-               round(relative_NSD[1],1),
-               round(relative_NSD[3],1),
-               round(slope_before_NMT[2],2),
-               round(slope_to_hl(slope_before_NMT[2]),1),
-               round(slope_to_hl(slope_before_NMT[1]),1),
-               round(slope_to_hl(slope_before_NMT[3]),1),
-               round(slope_after_NMT[2],2),
-               round(slope_to_hl(slope_after_NMT[2]),1),
-               round(slope_to_hl(slope_after_NMT[1]),1),
-               round(slope_to_hl(slope_after_NMT[3]),1),
-               round(relative_NMT[2],1),
-               round(relative_NMT[1],1),
-               round(relative_NMT[3],1)
-               ))
-
-#######################################
 ```
 
 # Plot meta-analysis
@@ -1086,6 +1098,11 @@ G4 <- ggplot(effect_meta, aes(x = Trt, y = med, col = Dmax)) +
         plot.margin = margin(0.2,0.5,0,0, unit = "cm")) +
   scale_x_discrete(labels = my.labels)
 G4
+```
+
+```{r}
+estimated_trt_eff <- data.frame(round(formatter(effect_meta[,1:5])), effect_meta[,-(1:5)])
+estimated_trt_eff
 ```
 
 ```{r}
