@@ -51,5 +51,4 @@ rsconnect/
 *.html
 .DS_Store
 
-/user_settings.R
 user_settings.R
