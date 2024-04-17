@@ -56,7 +56,7 @@ ref_arm = 'No study drug'
 ```{r load_data}
 #| echo: false
 # set as file with relevant dataset
-itt_population_all = read.csv('Analysis_Data/ITT_population.csv')
+itt_population_all = get_itt_population(prefix_drop_rand = prefix_drop_rand)
 
 f_name = paste0("Analysis_Data/", intervention,'_analysis.csv')
 platcov_dat = read.csv(f_name)
