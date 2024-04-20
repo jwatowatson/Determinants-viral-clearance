@@ -965,22 +965,31 @@ for(i in 1:nrow(ind_tab)){
   trt_arm <- ind_tab$Trt[i]
   slope_before <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],],
                            c(0.25, 0.5, 0.75))
+  
+  hl_before <- quantile(slope_to_hl( slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],]),
+                           c(0.25, 0.5, 0.75))
+  
   slope_after <- quantile(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],], c(0.25, 0.5,0.75))
+  
+    hl_after <- quantile(slope_to_hl( slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],]), c(0.25, 0.5,0.75))
+  
+  
   relative_change <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],])/
                                        slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],]),
                                      c(0.025, 0.5, 0.975)))
+  
   ind_tab$slope_before_low[i] <- slope_before[1]
   ind_tab$slope_before_med[i] <- slope_before[2]
   ind_tab$slope_before_up[i] <- slope_before[3]
   ind_tab$slope_after_low[i] <- slope_after[1]
   ind_tab$slope_after_med[i] <- slope_after[2]
   ind_tab$slope_after_up[i] <- slope_after[3]
-  ind_tab$hl_before_low[i] <- slope_to_hl(slope_before[1])
-  ind_tab$hl_before_med[i] <- slope_to_hl(slope_before[2])
-  ind_tab$hl_before_up[i] <- slope_to_hl(slope_before[3])
-  ind_tab$hl_after_low[i] <- slope_to_hl(slope_after[1])
-  ind_tab$hl_after_med[i] <- slope_to_hl(slope_after[2])
-  ind_tab$hl_after_up[i] <- slope_to_hl(slope_after[3])
+  ind_tab$hl_before_low[i] <- hl_before[1] #slope_to_hl(slope_before[1])
+  ind_tab$hl_before_med[i] <- hl_before[2]#slope_to_hl(slope_before[2])
+  ind_tab$hl_before_up[i] <- hl_before[3] #slope_to_hl(slope_before[3])
+  ind_tab$hl_after_low[i] <- hl_after[1]  #slope_to_hl(slope_after[1])
+  ind_tab$hl_after_med[i] <- hl_after[2] #slope_to_hl(slope_after[2])
+  ind_tab$hl_after_up[i] <- hl_after[3] #slope_to_hl(slope_after[3])
   ind_tab$relative_change_low[i] <- relative_change[1]
   ind_tab$relative_change_med[i] <- relative_change[2]
   ind_tab$relative_change_up[i] <- relative_change[3]
