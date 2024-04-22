@@ -56,11 +56,11 @@ ref_arm = 'No study drug'
 ```{r load_data}
 #| echo: false
 # set as file with relevant dataset
-itt_population_all = read.csv('Analysis_Data/ITT_population.csv')
+itt_population_all = get_itt_population()#read.csv('Analysis_Data/ITT_population.csv')
 
 f_name = paste0("Analysis_Data/", intervention,'_analysis.csv')
 platcov_dat = read.csv(f_name)
-platcov_dat$Rand_date = as.POSIXct(platcov_dat$Rand_date)
+platcov_dat$Rand_date = as.POSIXct(as.Date(platcov_dat$Rand_date, format = "%d-%m-%y")) #as.POSIXct(platcov_dat$Rand_date)
 trt_intervention = unique(platcov_dat$Trt)
 
 if(!all(platcov_dat$ID %in% itt_population_all$ID)) stop('IDs do not match ITT population')
@@ -963,20 +963,25 @@ ind_tab <- slope_trt_for_summarize$data %>%
 
 for(i in 1:nrow(ind_tab)){
   trt_arm <- ind_tab$Trt[i]
-  slope_before <- quantile(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],],
-                           c(0.25, 0.5, 0.75))
+  slope_before_post <- slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],]
+  slope_before  <- quantile(slope_before_post, c(0.25, 0.5, 0.75))
+  slope_before_mean <- mean(slope_before_post)
   
-  hl_before <- quantile(slope_to_hl( slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],]),
-                           c(0.25, 0.5, 0.75))
+  hl_before_post <- slope_to_hl(slope_before_post)
+  hl_before  <- quantile(hl_before_post, c(0.25, 0.5, 0.75))
+  hl_before_mean <- mean(hl_before_post)
   
-  slope_after <- quantile(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],], c(0.25, 0.5,0.75))
+  slope_after_post <- slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],]
+  slope_after  <- quantile(slope_after_post, c(0.25, 0.5, 0.75))
+  slope_after_mean <- mean(slope_after_post)
   
-    hl_after <- quantile(slope_to_hl( slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],]), c(0.25, 0.5,0.75))
+  hl_after_post <- slope_to_hl(slope_after_post)
+  hl_after  <- quantile(hl_after_post, c(0.25, 0.5, 0.75))
+  hl_after_mean <- mean(hl_after_post)
   
-  
-  relative_change <- formatter(quantile(slope_to_hl(slope_trt_for_summarize$slope[ind_tab$max_index[ind_tab$Trt == trt_arm],])/
-                                       slope_to_hl(slope_trt_for_summarize$slope[ind_tab$min_index[ind_tab$Trt == trt_arm],]),
-                                     c(0.025, 0.5, 0.975)))
+  relative_change_post <- hl_after_post/hl_before_post
+  relative_change <- quantile(formatter(relative_change_post),  c(0.025, 0.5, 0.975))
+  relative_change_mean <- mean(formatter(relative_change_post))
   
   ind_tab$slope_before_low[i] <- slope_before[1]
   ind_tab$slope_before_med[i] <- slope_before[2]
@@ -993,6 +998,12 @@ for(i in 1:nrow(ind_tab)){
   ind_tab$relative_change_low[i] <- relative_change[1]
   ind_tab$relative_change_med[i] <- relative_change[2]
   ind_tab$relative_change_up[i] <- relative_change[3]
+  
+  ind_tab$slope_before_mean[i] <- slope_before_mean
+  ind_tab$hl_before_mean[i] <- hl_before_mean
+  ind_tab$slope_after_mean[i] <- slope_after_mean
+  ind_tab$hl_after_mean[i] <- hl_after_mean
+  ind_tab$relative_change_mean[i] <- relative_change_mean
 }
 ind_tab
 ```
@@ -1008,20 +1019,20 @@ for(i in 1:nrow(ind_tab)){
                      Relative change = a decrease of %s%% [95%% CrI %s to %s%%] in half-life',
                 ind_tab_i$Trt,
                 ind_tab_i$min_date,
-                round(ind_tab_i$slope_before_med,2),
+                round(ind_tab_i$slope_before_mean,2),
                 round(ind_tab_i$slope_before_low,2),
                 round(ind_tab_i$slope_before_up,2),
-                round(ind_tab_i$hl_before_med,1),
+                round(ind_tab_i$hl_before_mean,1),
                 round(ind_tab_i$hl_before_low,1),
                 round(ind_tab_i$hl_before_up,1),
                 ind_tab_i$max_date,
-                round(ind_tab_i$slope_after_med,2),
+                round(ind_tab_i$slope_after_mean,2),
                 round(ind_tab_i$slope_after_low,2),
                 round(ind_tab_i$slope_after_up,2),
-                round(ind_tab_i$hl_after_med,1),
+                round(ind_tab_i$hl_after_mean,1),
                 round(ind_tab_i$hl_after_low,1),
                 round(ind_tab_i$hl_after_up,1),
-                -round(ind_tab_i$relative_change_med),
+                -round(ind_tab_i$relative_change_mean),
                 -round(ind_tab_i$relative_change_low),
                 -round(ind_tab_i$relative_change_up)
   )
