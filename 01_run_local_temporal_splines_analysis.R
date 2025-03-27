@@ -13,7 +13,7 @@ library(dplyr)
 source('functions.R')
 source('priors.R')
 
-load('Rout/model_run_setup_Unblinded_meta.RData')
+#load('Rout/model_run_setup_Unblinded_meta.RData')
 
 Max_job = nrow(model_settings)
 

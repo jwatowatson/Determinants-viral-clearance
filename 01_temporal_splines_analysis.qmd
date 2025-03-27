@@ -35,7 +35,7 @@ sessionInfo()
 
 rstan_options(auto_write = TRUE)
 ## parameters for the analysis
-Dmax = c(5.5, 8)
+Dmax = c(5.5)
 study_threshold = 1.2
 RUN_MODELS = F
 
@@ -49,14 +49,14 @@ Set up analysis
 
 ```{r}
 
-intervention = 'Unblinded_meta' # prefix of analysis file
+intervention = 'Unblinded_all' # prefix of analysis file
 ref_arm = 'No study drug'
 ```
 
 ```{r load_data}
 #| echo: false
 # set as file with relevant dataset
-itt_population_all = get_itt_population(prefix_drop_rand = prefix_drop_rand)
+itt_population_all = get_itt_population()
 
 f_name = paste0("Analysis_Data/", intervention,'_analysis.csv')
 platcov_dat = read.csv(f_name)
@@ -185,8 +185,8 @@ missing_dat_plot
 
 ```{r}
 missing_dat_plot$Trt <- as.factor(missing_dat_plot$Trt)
-levels(missing_dat_plot$Trt)[7] <- "Ritonavir-boosted nirmatrelvir"
-levels(missing_dat_plot$Trt)[3] <- "Casirivimab/imdevimab"
+#levels(missing_dat_plot$Trt)[7] <- "Ritonavir-boosted nirmatrelvir"
+#levels(missing_dat_plot$Trt)[3] <- "Casirivimab/imdevimab"
 
 missing_dat_plot$percent_missing_lab <- format(round(missing_dat_plot$percent_missing, 1), nsmall = 1) 
 missing_dat_plot$col <- ifelse(missing_dat_plot$percent_missing <50, "white", "black")
@@ -321,19 +321,19 @@ stan_inputs[[i]] =
                    int_covs_full = covs_full,
                    slope_covs_base = covs_base,
                    slope_covs_full = covs_full,
-                   trt_frmla = formula('~ Trt * VariantClass_new'), #'~ Trt'
+                   trt_frmla = formula('~ Trt'), #'~ Trt'
                    Dmax = Dmax[i])
   
 }
 ```
 
 ```{r setup_models}
-all_mods = c("Stan_models/Temporal_spline_proportional.stan",
-             "Stan_models/Temporal_spline_additive.stan")
+all_mods = c("Stan_models/Temporal_spline_proportional.stan")
+             #"Stan_models/Temporal_spline_additive.stan")
 
 model_settings = expand.grid(mod = all_mods,
-                             prior = 1:2,
-                             cov_matrices = 1:2, 
+                             prior = 1,
+                             cov_matrices = 1, 
                             # dataset = 1:2,
                              Dmax = Dmax,
                              num_knots_alpha = 20,
@@ -369,7 +369,7 @@ save(model_settings,
 
 ```{r}
 if(RUN_MODELS){
-  system(paste('Rscript --vanilla run_models_local.R',intervention))
+  system(paste('Rscript --vanilla 01_run_local_temporal_splines_analysis.R',intervention))
 }
 ```
 
@@ -682,12 +682,12 @@ Gr_dynamics
 ### Choosing results
 
 ```{r}
-resDir <- "Rout/01_Rout_temporal_splines_analysis" # "Rout/01_Rout_temporal_splines_analysis_variants" 
+resDir <- "Rout/01_Rout_temporal_splines_analysis_epoch" # "Rout" "01_Rout_temporal_splines_analysis_variants" 
 list_files <- list.files(resDir)
 
-dmax <- 8 #5.5 8
+dmax <- 5.5 #5.5 8
 mod <- "Stan_models/Temporal_spline_proportional.stan" # "Stan_models
-cov <- 2 #2
+cov <- 1 #2
 prior <- 1 #2
 
 ind_res <- which(model_settings$Dmax == dmax & model_settings$mod == mod &
@@ -1030,7 +1030,7 @@ list_files <- list.files(resDir)
 
 #dmax <- 8 #5.5 8
 mod <- "Stan_models/Temporal_spline_proportional.stan" #Stan_models/Temporal_spline_mod2_w_slope_fixed_trt.stan
-cov <- 2 #2
+cov <- 1 #2
 prior <- 1 #2
 
 ind_res <- which(model_settings$mod == mod &
@@ -1068,14 +1068,14 @@ levels(effect_meta$Dmax) <- c("5 days", "7 days")
 row.names(effect_meta) <- NULL
 
 effect_meta$Trt <- as.factor(effect_meta$Trt)
-effect_meta$Trt <- factor(effect_meta$Trt, levels = c("Ivermectin", "Favipiravir", "Regeneron",
-                                                      "Molnupiravir", "Remdesivir", "Nirmatrelvir + Ritonavir"))
-levels(effect_meta$Trt)[3] <- "Casirivimab/Imdevimab"
-levels(effect_meta$Trt)[6] <- "Nirmatrelvir"
+# effect_meta$Trt <- factor(effect_meta$Trt, levels = c("Ivermectin", "Favipiravir", "Regeneron",
+#                                                       "Molnupiravir", "Remdesivir", "Nirmatrelvir + Ritonavir"))
+# levels(effect_meta$Trt)[3] <- "Casirivimab/Imdevimab"
+# levels(effect_meta$Trt)[6] <- "Nirmatrelvir"
 
 
-my.labels <- levels(effect_meta$Trt)
-my.labels[3] <- "Casirivimab/\nImdevimab"
+# my.labels <- levels(effect_meta$Trt)
+# my.labels[3] <- "Casirivimab/\nImdevimab"
 
 G4 <- ggplot(effect_meta, aes(x = Trt, y = med, col = Dmax)) +
   geom_point(position = position_dodge(width = 0.5), size = 3) +
